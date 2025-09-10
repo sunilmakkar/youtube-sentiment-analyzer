@@ -41,14 +41,14 @@ visit http://localhost:8000/docs
 ### 3. Milestones & Check-lists
 Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README updated.
 
-**Phase 0 — Bootstrap & Environment (½ day)**
-- Create repo `youtube-sentiment-analyzer` (MIT/Apache license)
-- Add `.gitignore`, `PRD.md` (this), `README.md` placeholder
-- Add `environment.yml` (Conda), `pyproject.toml` or `requirements.txt`
-- Add `.env.example` with: `DATABASE_URL`, `REDIS_URL`, `CELERY_*`, `YOUTUBE_API_KEY`, `SECRET_KEY`, `HF_MODEL_NAME`, `ACCESS_TOKEN_EXPIRE_MINUTES`
-- `docker-compose.yml` skeleton: `api`, `worker`, `db`(Postgres), `redis`, `flower`
-- Two Dockerfiles in `docker/`: `api.Dockerfile`, `worker.Dockerfile`
-- **Exit criteria:** `conda env create -f environment.yml && docker compose up` brings up all services; `GET /docs` loads (empty app OK).
+**Phase 0 — Bootstrap & Environment (½ day)**✅✅✅
+- Create repo `youtube-sentiment-analyzer` (MIT/Apache license)☑️
+- Add `.gitignore`, `PRD.md` (this), `README.md` placeholder☑️
+- Add `requirements.txt`☑️
+- Add `.env.example` with: `DATABASE_URL`, `REDIS_URL`, `CELERY_*`, `YOUTUBE_API_KEY`, `SECRET_KEY`, `HF_MODEL_NAME`, `ACCESS_TOKEN_EXPIRE_MINUTES`☑️
+- `docker-compose.yml` skeleton: `api`, `worker`, `db`(Postgres), `redis`, `flower`☑️
+- Two Dockerfiles in `docker/`: `api.Dockerfile`, `worker.Dockerfile`☑️
+- **Exit criteria:** `conda env create -f environment.yml && docker compose up` brings up all services; `GET /docs` loads (empty app OK).☑️
 
 **Phase 1 — App Scaffolding & Health (1 day)**
 - FastAPI app factory (`app/main.py`), include routers
