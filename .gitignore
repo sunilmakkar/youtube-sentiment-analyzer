@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+.env
+.env.*
+.venv
+.conda
+.envrc
+dist/
+build/
+*.egg-info
+.coverage
+htmlcov/
+pytest_cache/
+docker-compose.override.yml
