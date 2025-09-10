@@ -1,7 +1,16 @@
 from fastapi import FastAPI
+from app.api.routes import health
+from app.core.logging import init_logging
 
-app = FastAPI(title="Youtube Sentiment Analyzer", version="0.1.0")
+def create_app() -> FastAPI:
+    """Application factory."""
+    init_logging()
+    app = FastAPI(title="YouTube Sentiment Analyzer", version="0.1.0")
 
-@app.get("/healthz")
-async def healthz():
-    return {"status": "ok"}
+    # Include routers
+    app.include_router(health.router)
+
+    return app
+
+# Uvicorn/Gunicorn entrypoint
+app = create_app()

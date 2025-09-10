@@ -50,13 +50,13 @@ Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README u
 - Two Dockerfiles in `docker/`: `api.Dockerfile`, `worker.Dockerfile`☑️
 - **Exit criteria:** `conda env create -f environment.yml && docker compose up` brings up all services; `GET /docs` loads (empty app OK).☑️
 
-**Phase 1 — App Scaffolding & Health (1 day)**
-- FastAPI app factory (`app/main.py`), include routers
-- Core config via Pydantic `BaseSettings` (`app/core/config.py`)
-- DB engine/session, Base, Alembic init & baseline migration
-- Health route `/healthz:` API up, DB ping, Redis ping, Celery ping, HF model “ready=false” (lazy load)
-- Structured logging setup
-- **Exit criteria:** `alembic upgrade` head runs in container; `/healthz` returns all OK (model can be “not_loaded” but endpoint works).
+**Phase 1 — App Scaffolding & Health (1 day)**✅✅✅
+- FastAPI app factory (`app/main.py`), include routers☑️
+- Core config via Pydantic `BaseSettings` (`app/core/config.py`)☑️
+- DB engine/session, Base, Alembic init & baseline migration☑️
+- Health route `/healthz:` API up, DB ping, Redis ping, Celery ping, HF model “ready=false” (lazy load)☑️
+- Structured logging setup☑️
+- **Exit criteria:** `alembic upgrade` head runs in container; `/healthz` returns all OK (model can be “not_loaded” but endpoint works).☑️
 
 
 **Phase 2 — Auth & Multi-Tenancy (1–2 days)**
