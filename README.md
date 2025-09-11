@@ -59,12 +59,12 @@ Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README u
 - **Exit criteria:** `alembic upgrade` head runs in container; `/healthz` returns all OK (model can be “not_loaded” but endpoint works).☑️
 
 
-**Phase 2 — Auth & Multi-Tenancy (1–2 days)**
-- Models: `orgs`, `users`, `memberships (role: admin|member)`
-- Password hashing (bcrypt), JWT issue/verify; claims include `sub`, `org_id`, `role`, `exp`
-- Routes: `/auth/signup`, `/auth/login` (returns access token)
-- Dependency that injects `current_user` and `org_id;` protect all non-auth routes
-- **Exit criteria:** Auth flow tested; protected route returns 401/403 without/with wrong token; org isolation enforced in queries.
+**Phase 2 — Auth & Multi-Tenancy (1–2 days)**✅✅✅
+- Models: `orgs`, `users`, `memberships (role: admin|member)`☑️
+- Password hashing (bcrypt), JWT issue/verify; claims include `sub`, `org_id`, `role`, `exp`☑️
+- Routes: `/auth/signup`, `/auth/login` (returns access token)☑️
+- Dependency that injects `current_user` and `org_id;` protect all non-auth routes☑️
+- **Exit criteria:** Auth flow tested; protected route returns 401/403 without/with wrong token; org isolation enforced in queries.☑️
 
 
 **Phase 3 — Video & Ingestion API (2 days)**
