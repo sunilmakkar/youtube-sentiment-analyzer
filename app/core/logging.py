@@ -1,6 +1,7 @@
 import logging
 import sys
 
+
 def init_logging() -> None:
     """Configure structured logging for the app."""
     handler = logging.StreamHandler(sys.stdout)

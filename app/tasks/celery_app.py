@@ -1,24 +1,18 @@
 from celery import Celery
-from app.core.config import settings
+import os
 
-# Create Celery instance
 celery_app = Celery(
     "ytsa",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND
+    broker=os.getenv("CELERY_BROKER_URL", "redis://redis:6379/1"),
+    backend=os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/2"),
 )
 
-# Optional: configuration (retries, task serialization, etc)
-celery_app.conf.update(
-    task_track_started=True,
-    task_serializers="json",
-    result_serializer="json",
-    accept_content=["json"],
-    timezone="UTC",
-    enable_utc=True,
-)
+# Auto-discover tasks from app/tasks/
+celery_app.autodiscover_tasks(["app.tasks"])
 
-# Example task
+# Explicit import ensures fetch.py tasks always get registered
+import app.tasks.fetch
+
 @celery_app.task(name="task.ping")
 def ping():
     return "pong"

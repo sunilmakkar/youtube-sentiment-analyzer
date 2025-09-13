@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "YouTube Sentiment Analyzer"
 
@@ -22,5 +23,6 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"  # use .env in dev/prod, keep .env.example as template
+
 
 settings = Settings()

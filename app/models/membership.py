@@ -1,11 +1,15 @@
-from sqlalchemy import Column, String, ForeignKey, Enum
-from sqlalchemy.orm import relationship
-from app.db.base import Base
 import enum
+
+from sqlalchemy import Column, Enum, ForeignKey, String
+from sqlalchemy.orm import relationship
+
+from app.db.base import Base
+
 
 class RoleEnum(str, enum.Enum):
     admin = "admin"
     member = "member"
+
 
 class Membership(Base):
     __tablename__ = "memberships"

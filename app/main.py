@@ -1,6 +1,8 @@
 from fastapi import FastAPI
+
+from app.api.routes import auth, auth_health, health, ingest
 from app.core.logging import init_logging
-from app.api.routes import health, auth, auth_health
+
 
 def create_app() -> FastAPI:
     """Application factory."""
@@ -11,8 +13,10 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(auth_health.router)
+    app.include_router(ingest.router)
 
     return app
+
 
 # Uvicorn/Gunicorn entrypoint
 app = create_app()

@@ -4,6 +4,9 @@ from alembic import context
 from app.db.base import Base
 from app.core.config import settings
 
+# Import models here so that Base.metadata is populated
+from app import models
+
 # this is the Alembic Config object
 config = context.config
 

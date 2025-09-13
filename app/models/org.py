@@ -1,7 +1,10 @@
-from sqlalchemy import Column, String, DateTime
-from sqlalchemy.sql import func
-from app.db.base import Base
 import uuid
+
+from sqlalchemy import Column, DateTime, String
+from sqlalchemy.sql import func
+
+from app.db.base import Base
+
 
 class Org(Base):
     __tablename__ = "orgs"
