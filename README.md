@@ -75,18 +75,18 @@ Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README u
 - **Exit criteria:** Ingest a real `video_id` → pages fetched and written to DB (idempotent); `/status` shows progress.☑️
 
 
-**Phase 4 — Comments Persistence & Idempotency (1 day)**
-- Tables: `comments(org_id, video_id, yt_comment_id unique per org, author, text, published_at, like_count, parent_id)`
-- Deduping service (upsert by `(org_id, yt_comment_id)`); safe re-ingest
-- `GET /comments?video_id=...&limit&offset&has_sentiment=bool`
-- **Exit criteria:** Re-running ingest does not create duplicates; `/comments` paginates and optionally joins sentiment.
+**Phase 4 — Comments Persistence & Idempotency (1 day)**✅✅✅
+- Tables: `comments(org_id, video_id, yt_comment_id unique per org, author, text, published_at, like_count, parent_id)`☑️
+- Deduping service (upsert by `(org_id, yt_comment_id)`); safe re-ingest☑️
+- `GET /comments?video_id=...&limit&offset&has_sentiment=bool`☑️
+- **Exit criteria:** Re-running ingest does not create duplicates; `/comments` paginates and optionally joins sentiment.☑️
 
 
-**Phase 5 — Sentiment Inference (2 days)**
-- Table: `comment_sentiment(org_id, comment_id unique, label[pos|neg|neu], score, model_name, analyzed_at)`
-- HF pipeline lazy-loaded once per worker; batch processing (`BATCH_SIZE` env)
-- Celery `analyze_comments(video_id, org_id)`: process only unanalyzed comments
-- **Exit criteria:** Batch sentiment persisted; cold worker warms up once; health shows `model.loaded=true` after first inference.
+**Phase 5 — Sentiment Inference (2 days)***✅✅✅
+- Table: `comment_sentiment(org_id, comment_id unique, label[pos|neg|neu], score, model_name, analyzed_at)`☑️
+- HF pipeline lazy-loaded once per worker; batch processing (`BATCH_SIZE` env)☑️
+- Celery `analyze_comments(video_id, org_id)`: process only unanalyzed comments☑️
+- **Exit criteria:** Batch sentiment persisted; cold worker warms up once; health shows `model.loaded=true` after first inference.☑️
 
 
 **Phase 6 — Aggregates & Keywords (2 days)**

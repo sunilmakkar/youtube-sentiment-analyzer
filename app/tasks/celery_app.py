@@ -16,3 +16,30 @@ import app.tasks.fetch
 @celery_app.task(name="task.ping")
 def ping():
     return "pong"
+
+
+@celery_app.task(name="task.warmup_model")
+def warmup_model():
+    """
+    Force-load the HuggingFace sentiment model in this worker.
+
+    Purpose:
+    - Ensures the model pipeline is initialized once after deploy.
+    - Makes /healthz report {"hf_model": {"status": "ok", "loaded": true}}.
+    - Avoids cold-start latency on the first real sentiment task.
+
+    Usage:
+        warmup_model.delay().get(timeout=30)
+    """
+    from app.services import nlp_sentiment
+    import redis
+    from app.core.config import settings
+
+    # Run once with a dummy input to trigger lazy loading
+    nlp_sentiment.analyze_batch(["warmup"])
+
+    # Store shared flag in Redis
+    r = redis.Redis.from_url(settings.REDIS_URL)
+    r.set("hf_model_loaded", "true")
+
+    return {"model_loaded": nlp_sentiment.is_model_loaded()}
