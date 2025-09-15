@@ -40,7 +40,9 @@ async def signup(
 
 
 @router.post("/login", response_model=schemas.TokenResponse)
-async def login(payload: schemas.LoginRequest, db: AsyncSession = Depends(get_session)):
+async def login(
+    payload: schemas.LoginRequest, db: AsyncSession = Depends(get_session)
+):
     res = await db.execute(select(user.User).where(user.User.email == payload.email))
     db_user = res.scalar_one_or_none()
     if not db_user or not security.verify_password(

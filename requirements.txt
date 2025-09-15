@@ -29,3 +29,4 @@ isort==5.13.2
 pyjwt==2.9.0
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
+asgiref==3.8.1

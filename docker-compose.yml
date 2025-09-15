@@ -51,9 +51,15 @@ services:
       POSTGRES_DB: ytsa
     ports:
       - "5432:5432"
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
+
 
 # Redis broker & result backend
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+
+volumes:
+  postgres_data:

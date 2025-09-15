@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import auth, auth_health, health, ingest
+from app.api.routes import auth, auth_health, health, ingest, comments
 from app.core.logging import init_logging
 
 
@@ -14,6 +14,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(auth_health.router)
     app.include_router(ingest.router)
+    app.include_router(comments.router)
 
     return app
 

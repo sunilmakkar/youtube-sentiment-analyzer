@@ -1,8 +1,8 @@
-import asyncio
-
+from asgiref.sync import async_to_sync
 from app.db.session import async_session
-from app.models.video import Video
 from app.services.youtube_client import fetch_comments, fetch_video_metadata
+from app.services.dedupe import upsert_comments
+from app.services.videos import upsert_video
 from app.tasks.celery_app import celery_app
 
 
@@ -14,25 +14,29 @@ from app.tasks.celery_app import celery_app
     name="task.fetch_comments",
 )
 def fetch_comments_task(self, video_id: str, org_id: str):
-    return asyncio.run(_fetch_comments(video_id, org_id))
+    """Celery entrypoint for fetching + persisting comments for a video."""
+    return async_to_sync(_fetch_comments)(video_id, org_id)
 
 
 async def _fetch_comments(video_id: str, org_id: str):
     async with async_session() as session:
-        # Upsert video metadata
+        # 1. Ensure the video exists and get its DB UUID
         meta = await fetch_video_metadata(video_id)
-        video = Video(
-            org_id=org_id,
-            yt_video_id=video_id,
-            title=meta["title"],
-            channel_id=meta["channel_id"],
-        )
-        await session.merge(video)  # merge = upsert by PK/UC
-        await session.commit()
+        video = await upsert_video(session, org_id, video_id, meta)
 
-        all_comments = []
+        # 2. Fetch comments in batches + persist
+        total = 0
         async for batch in fetch_comments(video_id):
-            all_comments.extend(batch)
-            # TODO: Insert into comments table (Phase 4)
+            for c in batch:
+                c.setdefault("author", "Anonymous")
+                c.setdefault("published_at", "1970-01-01T00:00:00Z")
+                c.setdefault("like_count", 0)
+                c.setdefault("parent_id", None)
 
-        return {"video_id": video_id, "comments_fetched": len(all_comments)}
+            # 🔑 Pass DB UUID, not YouTube ID
+            await upsert_comments(session, org_id, video.id, batch)
+            total += len(batch)
+
+        # 3. Commit all comment inserts at once
+        await session.commit()
+        return {"video_id": video_id, "comments_fetched": total}

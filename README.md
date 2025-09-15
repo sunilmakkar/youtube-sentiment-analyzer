@@ -67,12 +67,12 @@ Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README u
 - **Exit criteria:** Auth flow tested; protected route returns 401/403 without/with wrong token; org isolation enforced in queries.☑️
 
 
-**Phase 3 — Video & Ingestion API (2 days)**
-- Tables: `videos(org_id, yt_video_id unique per org, title, channel_id, fetched_at, last_analyzed_at)`
-- `POST /ingest?video_id=XYZ`: upsert `videos`, enqueue Celery `fetch_comments(video_id, org_id)`
-- `GET /status/{task_id}`: surface Celery task state
-- YouTube client service: pagination, normalization, basic backoff on quota (429/403), small request budget per run
-- **Exit criteria:** Ingest a real `video_id` → pages fetched and written to DB (idempotent); `/status` shows progress.
+**Phase 3 — Video & Ingestion API (2 days)**✅✅✅
+- Tables: `videos(org_id, yt_video_id unique per org, title, channel_id, fetched_at, last_analyzed_at)`☑️
+- `POST /ingest?video_id=XYZ`: upsert `videos`, enqueue Celery `fetch_comments(video_id, org_id)`☑️
+- `GET /status/{task_id}`: surface Celery task state☑️
+- YouTube client service: pagination, normalization, basic backoff on quota (429/403), small request budget per run☑️
+- **Exit criteria:** Ingest a real `video_id` → pages fetched and written to DB (idempotent); `/status` shows progress.☑️
 
 
 **Phase 4 — Comments Persistence & Idempotency (1 day)**
