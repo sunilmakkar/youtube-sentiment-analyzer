@@ -1,3 +1,28 @@
+"""
+File: fetch.py
+Task: Fetch YouTube Comments
+-----------------------------
+This Celery task ingests YouTube video metadata and comments into
+the database. It runs asynchronously and is retried on transient errors.
+
+Key responsibilities:
+    - Ensure the video exists in the `videos` table (insert or update).
+    - Fetch comments from the YouTube client in paginated batches.
+    - Upsert comments into the `comments` table with deduplication.
+    - Commit the transaction once all inserts are done.
+
+Idempotency:
+    - Guaranteed by unique constraint (org_id, yt_comment_id).
+    - Existing comments are updated, new ones are inserted.
+
+Related modules:
+    - app/services/youtube_client.py → fetches stubbed YouTube metadata/comments.
+    - app/services/videos.py → handles video upsert.
+    - app/services/dedupe.py → handles comment upsert with dedupe logic.
+    - app/models/comment.py → comment schema definition.
+"""
+
+
 from asgiref.sync import async_to_sync
 from app.db.session import async_session
 from app.services.youtube_client import fetch_comments, fetch_video_metadata
@@ -14,11 +39,40 @@ from app.tasks.celery_app import celery_app
     name="task.fetch_comments",
 )
 def fetch_comments_task(self, video_id: str, org_id: str):
-    """Celery entrypoint for fetching + persisting comments for a video."""
+    """
+    Celery entrypoint: Fetch + persist comments for a given video/org.
+
+    Args:
+        video_id (str): External YouTube video ID.
+        org_id (str): Tenant org identifier.
+
+    Returns:
+        dict: {
+            "video_id": str,
+            "comments_fetched": int
+        }
+    """
     return async_to_sync(_fetch_comments)(video_id, org_id)
 
 
 async def _fetch_comments(video_id: str, org_id: str):
+    """
+    Async worker logic for fetching and persisting comments.
+
+    Steps:
+        1. Upsert video metadata into the `videos` table.
+        2. Iterate over comments from YouTube client (batched).
+        3. Normalize missing fields with defaults.
+        4. Upsert comments into the `comments` table.
+        5. Commit the transaction once all inserts are complete.
+
+    Args:
+        video_id (str): External YouTube video ID.
+        org_id (str): Tenant org identifier.
+
+    Returns:
+        dict: Summary of ingestion results.
+    """
     async with async_session() as session:
         # 1. Ensure the video exists and get its DB UUID
         meta = await fetch_video_metadata(video_id)

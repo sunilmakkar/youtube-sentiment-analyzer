@@ -1,4 +1,5 @@
 """
+File: nlp_sentiment.py
 Service: NLP Sentiment Analysis
 --------------------------------
 This service provides a thin wrapper around a HuggingFace
@@ -11,7 +12,13 @@ sentiment-analysis pipeline. It is designed to:
 2. Support batch inference using the BATCH_SIZE env var.
 
 3. Return normalized results with label, score, and model_name.
+
+Related modules:
+    - app/tasks/analyze.py → calls `analyze_batch` inside Celery tasks.
+    - app/api/routes/health.py → uses `is_model_loaded` for health checks.
+    - app/core/config.py → provides `HF_MODEL_NAME` from environment.
 """
+
 
 import os
 from typing import List, Dict
@@ -34,7 +41,10 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", 16))
 def _load_model():
     """
     Internal helper to initialize the HuggingFace pipeline.
-    Called only once per worker process. 
+    Called only once per worker process.
+
+    Returns:
+        transformers.Pipeline: Sentiment-analysis pipeline instance.
     """
     global _model, model_loaded
 
@@ -58,9 +68,9 @@ def analyze_batch(texts: List[str]) -> List[Dict[str, str]]:
     Returns:
         List[Dict[str, str]]:
             Each dict contains:
-            - label: "POSITIVE" | "NEGATIVE" | "NEUTRAL"
+            - label: "pos" | "neg" | "neu"
             - score: float confidence score
-            - model_name: model indentifier
+            - model_name: str, model identifier
     """
     model = _load_model()
 
@@ -91,6 +101,8 @@ def analyze_batch(texts: List[str]) -> List[Dict[str, str]]:
 def is_model_loaded() -> bool:
     """
     Expose model warmup status for health checks.
-    Returns True once the model is loaded in the worker.
+
+    Returns:
+        bool: True once the model is loaded in the worker, False otherwise.
     """
     return model_loaded

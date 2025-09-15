@@ -1,3 +1,24 @@
+"""
+File: celery_app.py
+Service: Celery Application
+----------------------------
+This module configures the Celery application instance used for 
+background tasks (e.g., comment ingestion, sentiment analysis).
+
+Key responsibilities:
+    - Define the central Celery `celery_app` object.
+    - Configure broker and result backend from environment variables.
+    - Auto-discover tasks within `app/tasks/`.
+    - Provide simple health-check (`ping`) and warmup tasks.
+
+Related modules:
+    - app/tasks/fetch.py → fetch YouTube comments into DB.
+    - app/tasks/analyze.py → analyze comments for sentiment.
+    - app/services/nlp_sentiment.py → HuggingFace sentiment model.
+    - app/api/routes/health.py → monitors worker + model readiness.
+"""
+
+
 from celery import Celery
 import os
 
@@ -15,21 +36,33 @@ import app.tasks.fetch
 
 @celery_app.task(name="task.ping")
 def ping():
+    """
+    Simple health-check task.
+
+    Returns:
+        str: Always returns "pong" if worker is alive.
+    """
     return "pong"
 
 
 @celery_app.task(name="task.warmup_model")
 def warmup_model():
     """
-    Force-load the HuggingFace sentiment model in this worker.
+    Celery task to force-load the HuggingFace sentiment model.
 
     Purpose:
-    - Ensures the model pipeline is initialized once after deploy.
-    - Makes /healthz report {"hf_model": {"status": "ok", "loaded": true}}.
-    - Avoids cold-start latency on the first real sentiment task.
+        - Ensures the model pipeline is initialized once after deploy.
+        - Allows /healthz to report:
+            {"hf_model": {"status": "ok", "loaded": true}}
+        - Eliminates cold-start latency for the first real analysis task.
+
+    Returns:
+        dict: {
+            "model_loaded": bool  # True if pipeline is initialized
+        }
 
     Usage:
-        warmup_model.delay().get(timeout=30)
+        >>> warmup_model.delay().get(timeout=30)
     """
     from app.services import nlp_sentiment
     import redis

@@ -1,3 +1,23 @@
+"""
+File: auth.py
+Purpose:
+    Handle user authentication and organization-aware signups/logins.
+
+Key responsibilities:
+    - Provide endpoints for user signup and login.
+    - Issue JWT tokens scoped to user, org, and role.
+    - Enforce multi-tenant isolation through JWT claims.
+    - Expose a protected /me route for authenticated requests.
+
+Related modules:
+    - app/core/security.py → password hashing & JWT utilities.
+    - app/core/deps.py → provides get_current_user dependency.
+    - app/db/session.py → database session factory.
+    - app/models/{user, org, membership}.py → ORM models.
+    - app/schemas/auth.py → request/response schemas.
+"""
+
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +37,22 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def signup(
     payload: schemas.SignupRequest, db: AsyncSession = Depends(get_session)
 ):
+    """
+    Sign up a new organization + admin user.
+
+    Steps:
+        - Ensure email is not already registered.
+        - Create a new Org, User, and Membership (role = admin).
+        - Commit all to DB in one transaction.
+        - Return a JWT token scoped to org_id and role.
+
+    Args:
+        payload (SignupRequest): Org name, email, password.
+        db (AsyncSession): Database session (dependency).
+
+    Returns:
+        TokenResponse: JWT access token for the new user/org.
+    """
     # ensure email not taken
     res = await db.execute(select(user.User).where(user.User.email == payload.email))
     if res.scalar_one_or_none():
@@ -43,6 +79,22 @@ async def signup(
 async def login(
     payload: schemas.LoginRequest, db: AsyncSession = Depends(get_session)
 ):
+    """
+    Authenticate a user and return a JWT token.
+
+    Steps:
+        - Look up user by email.
+        - Verify password.
+        - Fetch first membership (org_id, role).
+        - Issue JWT token scoped to that org and role.
+
+    Args:
+        payload (LoginRequest): Email + password.
+        db (AsyncSession): Database session.
+
+    Returns:
+        TokenResponse: JWT access token.
+    """
     res = await db.execute(select(user.User).where(user.User.email == payload.email))
     db_user = res.scalar_one_or_none()
     if not db_user or not security.verify_password(
@@ -66,4 +118,13 @@ async def login(
 # --------------------------------------------------
 @router.get("/me")
 async def read_users_me(current_user: user.User = Depends(get_current_user)):
+    """
+    Protected route that returns current user info.
+
+    Args:
+        current_user (User): Resolved via JWT in get_current_user.
+
+    Returns:
+        dict: Current user's id and email.
+    """
     return {"id": current_user.id, "email": current_user.email}

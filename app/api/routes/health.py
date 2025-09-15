@@ -1,3 +1,24 @@
+"""
+File: health.py
+Purpose:
+    Provide a system health check endpoint that validates the status
+    of core dependencies (DB, Redis, Celery, HuggingFace model).
+
+Key responsibilities:
+    - Verify DB connectivity and measure query latency.
+    - Verify Redis connectivity and measure latency.
+    - Verify Celery task queue responsiveness.
+    - Report HuggingFace sentiment model warmup status (via Redis flag).
+    - Return a consolidated JSON payload with overall system health.
+
+Related modules:
+    - app/core/config.py → provides Redis URL and settings.
+    - app/db/session.py → database engine for DB checks.
+    - app/tasks/celery_app.py → Celery app and ping task.
+    - app/services/nlp_sentiment.py → model warmup integration.
+"""
+
+
 import time
 
 import redis
@@ -15,6 +36,28 @@ router = APIRouter()
 
 @router.get("/healthz")
 async def healthz():
+    """
+    System health check endpoint.
+
+    Performs:
+        - DB check with a simple SELECT 1 query.
+        - Redis ping to confirm cache/broker availability.
+        - Celery ping to confirm worker responsiveness.
+        - HuggingFace model warmup flag check via Redis.
+
+    Returns:
+        dict: JSON response with overall status and individual checks.
+            Example:
+            {
+                "status": "ok",
+                "checks": {
+                    "db": {"status": "ok", "latency_ms": 10.1},
+                    "redis": {"status": "ok", "latency_ms": 3.4},
+                    "celery": {"status": "ok", "latency_ms": 55.7},
+                    "hf_model": {"status": "ok", "loaded": true}
+                }
+            }
+    """
     checks = {}
     overall_status = "ok"
 
