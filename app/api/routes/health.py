@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
 from app.db.session import engine
 from app.tasks.celery_app import ping
+from app.services import nlp_sentiment
 
 router = APIRouter()
 
@@ -60,7 +61,15 @@ async def healthz():
         checks["celery"] = {"status": "error"}
         overall_status = "degraded"
 
-    # HF model (lazy load placeholder)
-    checks["hf_model"] = {"status": "not_loaded"}
+    # HF model (shared flag via Redis)
+    try:
+        r = redis.Redis.from_url(settings.REDIS_URL)
+        if r.get("hf_model_loaded") == b"true":
+            checks["hf_model"] = {"status": "ok", "loaded": True}
+        else:
+            checks["hf_model"] = {"status": "not_loaded", "loaded": False}
+    except Exception:
+        checks["hf_model"] = {"status": "error", "loaded": False}
+        overall_status = "degraded"
 
     return {"status": overall_status, "checks": checks}
