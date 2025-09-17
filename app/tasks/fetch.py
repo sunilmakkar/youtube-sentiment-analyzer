@@ -29,6 +29,7 @@ from app.services.youtube_client import fetch_comments, fetch_video_metadata
 from app.services.dedupe import upsert_comments
 from app.services.videos import upsert_video
 from app.tasks.celery_app import celery_app
+from app.tasks.analyze import analyze_comments_task
 
 
 @celery_app.task(
@@ -55,6 +56,7 @@ def fetch_comments_task(self, video_id: str, org_id: str):
     return async_to_sync(_fetch_comments)(video_id, org_id)
 
 
+
 async def _fetch_comments(video_id: str, org_id: str):
     """
     Async worker logic for fetching and persisting comments.
@@ -65,13 +67,7 @@ async def _fetch_comments(video_id: str, org_id: str):
         3. Normalize missing fields with defaults.
         4. Upsert comments into the `comments` table.
         5. Commit the transaction once all inserts are complete.
-
-    Args:
-        video_id (str): External YouTube video ID.
-        org_id (str): Tenant org identifier.
-
-    Returns:
-        dict: Summary of ingestion results.
+        6. Trigger sentiment analysis on the ingested comments.
     """
     async with async_session() as session:
         # 1. Ensure the video exists and get its DB UUID
@@ -80,7 +76,7 @@ async def _fetch_comments(video_id: str, org_id: str):
 
         # 2. Fetch comments in batches + persist
         total = 0
-        async for batch in fetch_comments(video_id):
+        async for batch in fetch_comments(video_id, org_id):
             for c in batch:
                 c.setdefault("author", "Anonymous")
                 c.setdefault("published_at", "1970-01-01T00:00:00Z")
@@ -93,4 +89,9 @@ async def _fetch_comments(video_id: str, org_id: str):
 
         # 3. Commit all comment inserts at once
         await session.commit()
-        return {"video_id": video_id, "comments_fetched": total}
+
+    # 4. Enqueue sentiment analysis as a follow-up task
+    analyze_comments_task.delay(video_id, org_id)
+
+    return {"video_id": video_id, "comments_fetched": total}
+

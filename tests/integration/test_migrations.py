@@ -10,7 +10,7 @@ Coverage:
 
 import pytest
 from sqlalchemy import text
-from app.db.session import SessionLocal
+from app.db.session import async_session
 
 
 @pytest.mark.asyncio
@@ -19,7 +19,7 @@ async def test_videos_table_exists():
     Ensure the "videos" table exists and contains the required columns.
     Validates migration integrity after Alembic upgrade.
     """
-    async with SessionLocal() as session:
+    async with async_session() as session:
         result = await session.execute(
             text("SELECT column_name FROM information_schema.columns WHERE table_name='videos'")
         )

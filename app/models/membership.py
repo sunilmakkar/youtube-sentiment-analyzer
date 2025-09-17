@@ -24,6 +24,7 @@ from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 
+
 class RoleEnum(str, enum.Enum):
     """Role options for a membership: admin or member."""
     admin = "admin"

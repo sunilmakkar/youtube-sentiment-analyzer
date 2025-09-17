@@ -31,8 +31,12 @@ celery_app = Celery(
 # Auto-discover tasks from app/tasks/
 celery_app.autodiscover_tasks(["app.tasks"])
 
-# Explicit import ensures fetch.py tasks always get registered
+# Explicit imports ensure all tasks get registered
 import app.tasks.fetch
+import app.tasks.analyze
+import app.tasks.aggregate
+import app.tasks.keywords
+
 
 @celery_app.task(name="task.ping")
 def ping():

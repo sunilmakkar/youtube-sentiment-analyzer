@@ -19,7 +19,7 @@ Related modules:
 
 from fastapi import FastAPI
 
-from app.api.routes import auth, auth_health, health, ingest, comments
+from app.api.routes import auth, auth_health, health, ingest, comments, analytics
 from app.core.logging import init_logging
 from app.tasks.celery_app import warmup_model
 
@@ -40,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_health.router)
     app.include_router(ingest.router)
     app.include_router(comments.router)
+    app.include_router(analytics.router)
 
     return app
 

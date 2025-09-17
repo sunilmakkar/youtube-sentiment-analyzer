@@ -30,7 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 
 from app.db.session import async_session
-from app.models import Comment, CommentSentiment
+from app.models import Comment, CommentSentiment, Video
 from app.services import nlp_sentiment
 from app.tasks.celery_app import celery_app
 
@@ -77,11 +77,12 @@ async def _analyze_comments(video_id: str, org_id: str):
         dict: Summary of how many comments were analyzed.
     """
     async with async_session() as session:
-        # 1. Find all comments for this video/org with no sentiment yet
+        # 1. Find comments linked to the external YouTube video_id
         stmt = (
             select(Comment)
+            .join(Video, Comment.video_id == Video.id)
             .where(Comment.org_id == org_id)
-            .where(Comment.video_id == video_id)
+            .where(Video.yt_video_id == video_id)  # ✅ filter by YouTube ID
             .where(
                 ~Comment.id.in_(
                     select(CommentSentiment.comment_id).where(
