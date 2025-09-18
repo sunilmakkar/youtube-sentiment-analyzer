@@ -16,12 +16,14 @@ Related modules:
 """
 
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 
 from app.core.deps import get_current_user
 from app.schemas.auth import CurrentUser
 from app.tasks.celery_app import celery_app
 from app.tasks.fetch import fetch_comments_task
+from app.services.rate_limiter import check_rate_limit
+
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -34,9 +36,11 @@ async def ingest_video(
     """
     Ingest YouTube comments for a given video.
 
-    Enqueues a Celery task to fetch and persist comments
-    asynchronously. Task status can later be checked via
-    `/ingest/status/{task_id}`.
+    Steps:
+        1. Check per-org rate limit (token bucket in Redis).
+        2. If allowed, enqueue Celery task to fetch and persist comments.
+        3. Return task_id so client can track status.
+        4. If limit exceeded, return 429 Too Many Requests.
 
     Args:
         video_id (str): YouTube video ID to ingest.
@@ -47,8 +51,18 @@ async def ingest_video(
             Example:
             {"task_id": "e8d9a83f-3b2c-4c3c-b8d7-5f4a5bbdfe1a"}
     """
+    # Rate limit check (per-org)
+    allowed = await check_rate_limit(current_user.org_id)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Please try again later.",
+        )
+
+    # Enqueue Celery task
     task = fetch_comments_task.delay(video_id, current_user.org_id)
     return {"task_id": task.id}
+
 
 
 @router.get("/status/{task_id}")

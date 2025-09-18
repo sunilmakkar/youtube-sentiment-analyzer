@@ -89,14 +89,14 @@ Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README u
 - **Exit criteria:** Batch sentiment persisted; cold worker warms up once; health shows `model.loaded=true` after first inference.☑️
 
 
-**Phase 6 — Aggregates & Keywords (2 days)**
-- Tables: `sentiment_aggregates(org_id, video_id, window_start, window_end, pos_pct, neg_pct, neu_pct, count)`; `keywords(org_id, video_id, term, count, last_updated_at)`
-- Celery tasks: `compute_sentiment_trend(video_id, org_id, window='daily')`, `compute_keywords(video_id, org_id, top_k=25)`
-- Analytics routes:
- - `GET /analytics/sentiment-trend?video_id=...&window=daily&start&end`
- - `GET /analytics/distribution?video_id=...`
- - `GET /analytics/keywords?video_id=...&top_k=25`
-- **Exit criteria:** Trend/distribution/keywords return correct shapes on seeded data.
+**Phase 6 — Aggregates & Keywords (2 days)**✅✅✅
+- Tables: `sentiment_aggregates(org_id, video_id, window_start, window_end, pos_pct, neg_pct, neu_pct, count)`; `keywords(org_id, video_id, term, count, last_updated_at)`☑️
+- Celery tasks: `compute_sentiment_trend(video_id, org_id, window='daily')`, `compute_keywords(video_id, org_id, top_k=25)`☑️
+- Analytics routes:☑️
+ - `GET /analytics/sentiment-trend?video_id=...&window=daily&start&end`☑️
+ - `GET /analytics/distribution?video_id=...`☑️
+ - `GET /analytics/keywords?video_id=...&top_k=25`☑️
+- **Exit criteria:** Trend/distribution/keywords return correct shapes on seeded data.☑️
 
 
 **Phase 7 — Reliability: Retries, Idempotency, Rate Limits (1 day)**

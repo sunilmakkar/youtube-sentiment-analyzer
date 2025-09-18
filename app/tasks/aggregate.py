@@ -88,6 +88,7 @@ async def _compute_sentiment_trend(video_id: str, org_id: str, window: str):
 @celery_app.task(
     bind=True,
     autoretry_for=(Exception,),
+    retry_backoff=True,
     max_retries=5,
     name="task.compute_keywords",
 )
