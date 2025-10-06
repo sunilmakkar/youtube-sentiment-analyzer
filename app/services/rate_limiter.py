@@ -20,12 +20,14 @@ Related modules:
 """
 
 import time
+
 import redis.asyncio as aioredis
+
 from app.core.config import settings
 
 # Rate limit configuration (per org)
-RATE_LIMIT_MAX_TOKENS = 5           # bucket capacity (burst allowed)
-RATE_LIMIT_REFILL_RATE = 5 / 60     # tokens per second (~5 tokens per minute)
+RATE_LIMIT_MAX_TOKENS = 5  # bucket capacity (burst allowed)
+RATE_LIMIT_REFILL_RATE = 5 / 60  # tokens per second (~5 tokens per minute)
 
 # Global Redis connection pool
 redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -37,7 +39,7 @@ async def check_rate_limit(org_id: str) -> bool:
 
     Args:
         org_id (str): Tenant organization identifier.
-    
+
     Returns:
         bool:
         - True -> request allowed (token consumed).
@@ -61,12 +63,12 @@ async def check_rate_limit(org_id: str) -> bool:
     allowed = tokens >= 1.0
 
     if allowed:
-        tokens -= 1.0   # consume one token
+        tokens -= 1.0  # consume one token
         await redis.hset(
             key,
             mapping={"tokens": tokens, "last_refill": now},  # ✅ fixed
         )
-        await redis.expire(key, 60)     # expire after inactivity
+        await redis.expire(key, 60)  # expire after inactivity
         return True
     else:
         # No tokens -> reject request

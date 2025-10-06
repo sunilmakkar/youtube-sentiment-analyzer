@@ -17,18 +17,17 @@ Related modules:
     - app/tasks/aggregate.py → Celery entrypoints.
 """
 
-
+import uuid
 from collections import Counter
+from datetime import datetime
+
+import nltk
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
-import nltk
-import uuid
 
 from app.models.comment import Comment
 from app.models.keyword import Keyword
-
 
 # Ensure tokenizers is available
 nltk.download("punkt", quiet=True)
@@ -60,6 +59,8 @@ async def compute_and_store_keywords(
 
     # Tokenize + normalize
     tokens = [w.lower() for text in texts for w in nltk.word_tokenize(text)]
+    if not tokens:
+        return []
     freq = Counter(tokens).most_common(top_k)
 
     # Upsert into DB
@@ -84,7 +85,7 @@ async def compute_and_store_keywords(
                 },
             )
         )
-        
+
         await session.execute(insert_stmt)
         upserted.append({"term": term, "count": count})
 

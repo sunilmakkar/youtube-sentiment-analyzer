@@ -14,7 +14,6 @@ Related modules:
     - app.core.config → provides JWT secret, algorithm, and expiry settings.
 """
 
-
 from datetime import datetime, timedelta
 
 import jwt
@@ -65,9 +64,12 @@ def create_access_token(data: dict, expires_minutes: int = None) -> str:
     """
 
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(
-        minutes=expires_minutes or settings.JWT_EXP_MINUTES
-    )
+
+    # Use default only if expires_minutes is not provided
+    if expires_minutes is None:
+        expires_minutes = settings.JWT_EXP_MINUTES
+
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
     to_encode.update({"exp": expire})
     return jwt.encode(
         to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM

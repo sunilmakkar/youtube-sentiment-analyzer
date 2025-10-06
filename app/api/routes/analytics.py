@@ -17,14 +17,14 @@ Related modules:
     - app/core/deps.py → provides DB session + authenticated user context.
 """
 
-from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_session, get_current_user
-from app.services import aggregates, keywords
-from app.schemas.auth import CurrentUser
+from app.core.deps import get_current_user, get_session
 from app.models import Video
+from app.schemas.auth import CurrentUser
+from app.services import aggregates, keywords
 
 router = APIRouter()
 
@@ -72,7 +72,9 @@ async def sentiment_trend(
             - count: int
     """
     video_uuid = await _resolve_video_uuid(db, user.org_id, video_id)
-    trend = await aggregates.compute_and_store_trend(db, video_uuid, user.org_id, window)
+    trend = await aggregates.compute_and_store_trend(
+        db, video_uuid, user.org_id, window
+    )
     return {"trend": trend}
 
 

@@ -14,12 +14,19 @@ Related modules:
     - Alembic migrations → auto-detect schema changes across these models.
 """
 
-
+from .comment import Comment
+from .comment_sentiment import CommentSentiment
+from .sentiment_aggregate import SentimentAggregate
 from .membership import Membership
 from .org import Org
 from .user import User
-from .comment import Comment
 from .video import Video
-from .comment_sentiment import CommentSentiment
 
-__all__ = ["Org", "User", "Membership", "Comment", "Video", "CommentSentiment"]
+__all__ = ["Org",
+           "User",
+           "Membership",
+           "Comment",
+           "Video",
+           "CommentSentiment",
+           "SentimentAggregate"
+]

@@ -16,6 +16,7 @@ services:
       - redis
     volumes:
       - .:/app
+      - ./.coverage-data:/app/.coverage-data
 
   # Celery worker container
   worker:
@@ -23,7 +24,7 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     env_file:
-      - .env.example
+      - .env
     environment:
       - PYTHONPATH=/app
     command: celery -A app.tasks.celery_app worker --loglevel=info
@@ -52,7 +53,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-    - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
 
 
 # Redis broker & result backend

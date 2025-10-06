@@ -12,9 +12,9 @@ Key points:
     - Ensures status endpoint responds with expected fields.
 """
 
-
 import pytest
 from httpx import AsyncClient
+
 
 @pytest.mark.asyncio
 async def test_ingest_and_status_flow(async_client: AsyncClient, auth_headers):
@@ -24,7 +24,7 @@ async def test_ingest_and_status_flow(async_client: AsyncClient, auth_headers):
         2. Verify response contains a valid task_id.
         3. Poll the status endpoint and confirm "status" key exists.
     """
-    resp = await async_client.post("/ingest/?video_id=abc123", headers=auth_headers)
+    resp = await async_client.post("/ingest/?video_id=abc123", headers=auth_headers["headers"])
     assert resp.status_code == 200
     task_id = resp.json()["task_id"]
     assert task_id

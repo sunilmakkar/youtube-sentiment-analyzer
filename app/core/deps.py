@@ -15,7 +15,6 @@ Related modules:
     - app/schemas/auth.py → TokenPayload (JWT claims) and CurrentUser schema.
 """
 
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession

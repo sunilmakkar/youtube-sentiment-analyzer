@@ -17,9 +17,9 @@ Related modules:
     - app/services/dedupe.py → consumes comments for upsert.
 """
 
-
-from datetime import datetime
 import asyncio
+from datetime import datetime
+
 
 async def fetch_video_metadata(video_id: str) -> dict:
     """
@@ -40,6 +40,7 @@ async def fetch_video_metadata(video_id: str) -> dict:
         - Replace with YouTube Data API call in production.
     """
     return {"title": f"Stub title for {video_id}", "channel_id": "stub_channel"}
+
 
 async def fetch_comments(video_id: str, org_id: str, page_token: str = None):
     """
@@ -67,12 +68,14 @@ async def fetch_comments(video_id: str, org_id: str, page_token: str = None):
 
     for i in range(2):
         await asyncio.sleep(0.05)
-        yield [{
-            # include org_id for uniqueness in stub
-            "yt_comment_id": f"{org_id}_{video_id}_c{i}",
-            "text": f"Great video batch {i}!",
-            "author": "stub_user",
-            "published_at": datetime.utcnow(),
-            "like_count": 0,
-            "parent_id": None,
-        }]
+        yield [
+            {
+                # include org_id for uniqueness in stub
+                "yt_comment_id": f"{org_id}_{video_id}_c{i}",
+                "text": f"Great video batch {i}!",
+                "author": "stub_user",
+                "published_at": datetime.utcnow(),
+                "like_count": 0,
+                "parent_id": None,
+            }
+        ]

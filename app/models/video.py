@@ -23,7 +23,6 @@ Schema:
     └────────────┴──────────────┴──────────────┴────────────┴────────────┘
 """
 
-
 import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint
@@ -47,6 +46,7 @@ class Video(Base):
         created_at (datetime): Row creation time (server default).
         updated_at (datetime): Row update time (auto-updated on change).
     """
+
     __tablename__ = "videos"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

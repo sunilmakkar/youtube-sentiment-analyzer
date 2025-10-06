@@ -2,38 +2,39 @@
 Shared pytest fixtures for integration + unit tests.
 
 Provides:
-    - event_loop: AsyncIO event loop for pytest-asyncio.
     - async_client: httpx.AsyncClient bound to FastAPI app.
-    - auth_headers: reusable Authorization header for authenticated requests.
-    - current_org: ensure a test Org row exists in the DB.
+    - auth_headers: provisions a fresh Org+User and returns a valid JWT.
     - current_user: fake authenticated user bound to the test org.
-    - seeded_comments: seed one video + comments + sentiments for analytics tests.
+    - seeded_comments_for_auth: seed one video + comments under JWT org_id.
+    - seeded_sentiments_for_auth: extends seeded_comments_for_auth with sentiments.
+    - db_session: yields a fresh SQLAlchemy AsyncSession per test (truncated tables).
+    - redis_client: isolated Redis client per test.
+    - mock_celery: mock Celery tasks for ingestion/status flow.
 """
 
+import uuid
 import pytest
 import pytest_asyncio
-import uuid
-from datetime import datetime
+import redis.asyncio as aioredis
 import asyncio
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import select
 
-from app.schemas.auth import CurrentUser
+from httpx import ASGITransport, AsyncClient
+from datetime import datetime
+from sqlalchemy import select, text
+
 from app.db.session import async_session
-from app.models import Org, Video, Comment, CommentSentiment
 from app.main import app
-
+from app.models import Comment, CommentSentiment, Video
+from app.schemas.auth import CurrentUser
+from app.core.config import settings
 
 # ==============================================================================
-# AsyncIO Event Loop (pytest-asyncio requirement)
+# Event Loop
 # ==============================================================================
 @pytest.fixture(scope="session")
 def event_loop():
-    """
-    Provide a session-scoped event loop for pytest-asyncio.
-    Ensures async tests and fixtures can run properly.
-    """
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    """Single event loop for all async tests."""
+    loop = asyncio.new_event_loop()
     yield loop
     loop.close()
 
@@ -43,188 +44,275 @@ def event_loop():
 # ==============================================================================
 @pytest_asyncio.fixture
 async def async_client():
-    """
-    Fixture: Async HTTP client bound to FastAPI app.
-    Allows calling API routes without running a server.
-    """
+    """httpx.AsyncClient bound to FastAPI app."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
 
 # ==============================================================================
-# Authorization Header (real login/signup)
+# Authorization Header (fresh Org + User each test)
 # ==============================================================================
 @pytest_asyncio.fixture
-async def auth_headers(async_client):
+async def auth_headers(async_client, db_session):
     """
-    Fixture: Get a real JWT by logging in first, or sign up if necessary.
-    Idempotent: ensures we never trigger duplicate Org/User inserts.
+    Fixture: Provisions a fresh org+user via /auth/signup after DB reset,
+    logs in, and returns both the JWT header and org_id.
     """
-    login_payload = {
-        "email": "test@example.com",
-        "password": "secret123",
-    }
+    import base64, json, uuid
 
-    # 1. Try login first
-    resp = await async_client.post("/auth/login", json=login_payload)
-    if resp.status_code == 200:
-        token = resp.json()["access_token"]
-        return {"Authorization": f"Bearer {token}"}
+    unique_suffix = str(uuid.uuid4())[:8]
+    email = f"user_{unique_suffix}@example.com"
+    password = "secret123"
+    org_name = f"Org_{unique_suffix}"
 
-    # 2. Check if org already exists (avoid duplicate key)
-    async with async_session() as session:
-        from app.models import Org
-        from sqlalchemy import select
+    # Signup
+    resp = await async_client.post(
+        "/auth/signup", json={"org_name": org_name, "email": email, "password": password}
+    )
+    assert resp.status_code in (200, 201), f"Signup failed: {resp.text}"
 
-        existing = await session.execute(select(Org).where(Org.name == "Test Org"))
-        if existing.scalar_one_or_none():
-            raise RuntimeError(
-                "Test Org already exists but login failed. "
-                "Likely due to password mismatch between fixture and DB."
-            )
-
-    # 3. Otherwise, create fresh org + user via signup
-    signup_payload = {
-        "org_name": "Test Org",
-        "email": login_payload["email"],
-        "password": login_payload["password"],
-    }
-    resp = await async_client.post("/auth/signup", json=signup_payload)
-    assert resp.status_code == 200
     token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    payload = token.split(".")[1]
+    claims = json.loads(base64.urlsafe_b64decode(payload + "===").decode())
+    org_id = claims["org_id"]
 
+    # Login
+    resp = await async_client.post("/auth/login", json={"email": email, "password": password})
+    assert resp.status_code == 200, f"Login failed: {resp.text}"
+    token = resp.json()["access_token"]
 
-
-
-# ==============================================================================
-# Current Org (idempotent: get-or-create)
-# ==============================================================================
-@pytest_asyncio.fixture
-async def current_org():
-    """
-    Fixture: Ensure a test Org row exists in the DB.
-    Uses get-or-create logic to avoid duplicate key errors
-    when multiple tests reuse the same "Test Org".
-    """
-    async with async_session() as session:
-        existing = await session.execute(
-            select(Org).where(Org.name == "Test Org")
-        )
-        org = existing.scalar_one_or_none()
-        if org is None:
-            org = Org(
-                id=str(uuid.uuid4()),
-                name="Test Org",
-            )
-            session.add(org)
-            await session.commit()
-        return org
+    return {
+        "headers": {"Authorization": f"Bearer {token}"},
+        "org_id": org_id,
+    }
 
 
 # ==============================================================================
-# Current User
+# Current User (synthetic, for unit tests)
 # ==============================================================================
 @pytest.fixture
-def current_user(current_org):
-    """
-    Fixture: Fake authenticated user bound to the test Org.
-    Matches the structure of app.schemas.auth.CurrentUser.
-    """
+def current_user(auth_headers):
+    """Fake authenticated user for unit tests."""
     return CurrentUser(
         id=str(uuid.uuid4()),
         email="test@example.com",
-        org_id=current_org.id,  # ✅ ensures DB integrity
+        org_id=auth_headers["org_id"],
         role="admin",
     )
 
 
 # ==============================================================================
-# Seeded Comments (Video + Comments + Sentiments)
+# Seeded Comments (Video + Comments under JWT org_id)
 # ==============================================================================
 @pytest_asyncio.fixture
-async def seeded_comments(current_user):
-    """
-    Fixture: Seed one video, two comments, and their sentiments.
-    Provides realistic data for analytics-related tests.
+async def seeded_comments_for_auth(db_session, auth_headers):
+    """Seed one video + comments tied to the JWT org_id."""
+    org_id = auth_headers["org_id"]
 
-    Idempotent logic:
-        - Reuses existing Video if already present.
-        - Reuses existing Comments and Sentiments if they exist.
-        - Guarantees no duplicate key violations on repeated test runs.
+    video = Video(
+        id=str(uuid.uuid4()),
+        org_id=org_id,
+        yt_video_id="abc123",
+        title="Test Video",
+        channel_id="test_channel",
+        fetched_at=datetime.utcnow(),
+    )
+    db_session.add(video)
+    await db_session.flush()
+
+    comments = [
+        Comment(
+            id=str(uuid.uuid4()),
+            org_id=org_id,
+            video_id=video.id,
+            yt_comment_id="c1",
+            author="user1",
+            text="I love this video!",
+            published_at=datetime.utcnow(),
+            like_count=5,
+        ),
+        Comment(
+            id=str(uuid.uuid4()),
+            org_id=org_id,
+            video_id=video.id,
+            yt_comment_id="c2",
+            author="user2",
+            text="This is terrible",
+            published_at=datetime.utcnow(),
+            like_count=2,
+        ),
+    ]
+    db_session.add_all(comments)
+    await db_session.commit()
+    return video
+
+
+# ==============================================================================
+# Seeded Sentiments (extends Seeded Comments)
+# ==============================================================================
+@pytest_asyncio.fixture
+async def seeded_sentiments_for_auth(seeded_comments_for_auth, db_session, auth_headers):
+    """Attach sentiments to seeded comments under JWT org_id."""
+    org_id = auth_headers["org_id"]
+
+    comments = (
+        await db_session.execute(
+            select(Comment).where(Comment.video_id == seeded_comments_for_auth.id)
+        )
+    ).scalars().all()
+
+    for comment, (label, score) in zip(comments, [("pos", 0.95), ("neg", 0.90)]):
+        sentiment = CommentSentiment(
+            id=str(uuid.uuid4()),
+            org_id=org_id,
+            comment_id=comment.id,
+            label=label,
+            score=score,
+            model_name="test-model",
+            analyzed_at=datetime.utcnow(),
+        )
+        db_session.add(sentiment)
+
+    await db_session.commit()
+    return seeded_comments_for_auth
+
+
+# ==============================================================================
+# Database Session (truncate between tests, keep orgs)
+# ==============================================================================
+@pytest_asyncio.fixture(scope="function")
+async def db_session():
+    """
+    Fixture: Yields a fresh database session for each test.
+    Ensures clean slate by truncating relevant tables, including users/orgs.
     """
     async with async_session() as session:
-        # 1. Get-or-create Video
-        existing_video = await session.execute(
-            select(Video).where(
-                Video.org_id == current_user.org_id,
-                Video.yt_video_id == "abc123",
-            )
-        )
-        video = existing_video.scalar_one_or_none()
-        if video is None:
-            video = Video(
-                id=str(uuid.uuid4()),
-                org_id=current_user.org_id,
-                yt_video_id="abc123",
-                title="Test Video",
-                channel_id="test_channel",
-                fetched_at=datetime.utcnow(),
-            )
-            session.add(video)
-            await session.flush()
-
-        # 2. Get-or-create Comments
-        comments = []
-        for yt_id, author, text in [
-            ("c1", "user1", "I love this video!"),
-            ("c2", "user2", "This is terrible"),
+        for table in [
+            "sentiment_aggregates",
+            "comment_sentiment",
+            "comments",
+            "videos",
+            "users",
+            "orgs",
         ]:
-            existing_comment = await session.execute(
-                select(Comment).where(
-                    Comment.org_id == current_user.org_id,
-                    Comment.video_id == video.id,
-                    Comment.yt_comment_id == yt_id,
-                )
-            )
-            comment = existing_comment.scalar_one_or_none()
-            if comment is None:
-                comment = Comment(
-                    id=str(uuid.uuid4()),
-                    org_id=current_user.org_id,
-                    video_id=video.id,
-                    yt_comment_id=yt_id,
-                    author=author,
-                    text=text,
-                    published_at=datetime.utcnow(),
-                    like_count=5 if yt_id == "c1" else 2,
-                )
-                session.add(comment)
-                await session.flush()
-            comments.append(comment)
-
-        # 3. Get-or-create Sentiments
-        for comment, (label, score) in zip(comments, [("pos", 0.95), ("neg", 0.90)]):
-            existing_sent = await session.execute(
-                select(CommentSentiment).where(
-                    CommentSentiment.org_id == current_user.org_id,
-                    CommentSentiment.comment_id == comment.id,
-                )
-            )
-            sentiment = existing_sent.scalar_one_or_none()
-            if sentiment is None:
-                sentiment = CommentSentiment(
-                    id=str(uuid.uuid4()),
-                    org_id=current_user.org_id,
-                    comment_id=comment.id,
-                    label=label,
-                    score=score,
-                    model_name="test-model",
-                    analyzed_at=datetime.utcnow(),
-                )
-                session.add(sentiment)
-
-        # 4. Commit everything
+            await session.execute(text(f"TRUNCATE {table} CASCADE"))
         await session.commit()
-        return video
+        yield session
+
+
+# ==============================================================================
+# Redis Client
+# ==============================================================================
+@pytest_asyncio.fixture(scope="function")
+async def redis_client():
+    """Isolated Redis client per test."""
+    client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    await client.flushdb()
+    yield client
+    await client.close()
+
+
+# ==============================================================================
+# Patch Rate Limiter Redis
+# ==============================================================================
+@pytest_asyncio.fixture(autouse=True)
+async def _patch_rate_limiter_redis(redis_client):
+    """Patch rate_limiter to use test Redis client."""
+    from app.services import rate_limiter
+    rate_limiter.redis = redis_client
+    yield
+
+
+"""
+File: security.py
+Purpose:
+    Provides security utilities for authentication and authorization.
+
+Key responsibilities:
+    - Password hashing and verification with bcrypt.
+    - JWT access token creation and decoding.
+    - Centralized cryptographic logic used across the app.
+
+Related modules:
+    - passlib.context.CryptContext → password hashing (bcrypt).
+    - jwt (PyJWT) → encode/decode JWT tokens.
+    - app.core.config → provides JWT secret, algorithm, and expiry settings.
+"""
+
+from datetime import datetime, timedelta
+
+import jwt
+from passlib.context import CryptContext
+
+from app.core.config import settings
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    """
+    Hash a plaintext password using bcrypt.
+
+    Args:
+        password (str): Plaintext password.
+
+    Returns:
+        str: Securely hashed password.
+    """
+    return pwd_context.hash(password)
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    """
+    Verify a plaintext password against its hashed version.
+
+    Args:
+        plain (str): Plaintext password.
+        hashed (str): Hashed password from DB.
+
+    Returns:
+        bool: True if the password matches, False otherwise.
+    """
+    return pwd_context.verify(plain, hashed)
+
+
+def create_access_token(data: dict, expires_minutes: int = None) -> str:
+    """
+    Create a signed JWT access token.
+
+    Args:
+        data (dict): Claims to encode in the token (e.g., user_id, org_id, role).
+        expires_minutes (int, optional): Expiry in minutes. Defaults to settings.JWT_EXP_MINUTES.
+
+    Returns:
+        str: Encoded JWT token string.
+    """
+
+    to_encode = data.copy()
+
+    # Use default only if expires_minutes is not provided
+    if expires_minutes is None:
+        expires_minutes = settings.JWT_EXP_MINUTES
+
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    to_encode.update({"exp": expire})
+    return jwt.encode(
+        to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    )
+
+
+def decode_token(token: str) -> dict:
+    """
+    Decode and validate a JWT access token.
+
+    Args:
+        token (str): Encoded JWT token string.
+
+    Returns:
+        dict: Decoded payload containing claims.
+    """
+    return jwt.decode(
+        token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+    )
+

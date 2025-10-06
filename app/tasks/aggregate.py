@@ -27,7 +27,6 @@ Entrypoints:
     - compute_keywords_task(video_id, org_id, top_k)
 """
 
-
 from asgiref.sync import async_to_sync
 
 from app.db.session import async_session
@@ -42,7 +41,9 @@ from app.tasks.celery_app import celery_app
     max_retries=5,
     name="task.compute_sentiment_trend",
 )
-def compute_sentiment_trend_task(self, video_id: str, org_id: str, window: str = "daily"):
+def compute_sentiment_trend_task(
+    self, video_id: str, org_id: str, window: str = "daily"
+):
     """
     Celery entrypoint: Compute and persist sentiment aggregates for a video.
 
@@ -83,7 +84,7 @@ async def _compute_sentiment_trend(video_id: str, org_id: str, window: str):
             "window": window,
             "aggregates_computed": aggregates_computed,
         }
-    
+
 
 @celery_app.task(
     bind=True,

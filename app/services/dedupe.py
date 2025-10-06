@@ -13,12 +13,13 @@ Related modules:
     - app/tasks/fetch.py → calls upsert_comments during ingestion pipeline.
 """
 
-
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.comment import Comment
 
-async def upsert_comments(db: AsyncSession, org_id, video_id, comments: list[dict]):
+
+async def upsert_comments(db: AsyncSession, org_id: str, video_id: str, comments: list[dict]):
     """
     Insert or update a batch of YouTube comments for a given org and video.
 
@@ -37,28 +38,41 @@ async def upsert_comments(db: AsyncSession, org_id, video_id, comments: list[dic
             }
 
     Behavior:
-        - Uses Postgres `INSERT ... ON CONFLICT DO UPDATE`.
-        - Conflict target: (org_id, yt_comment_id).
-        - Updates fields like author, text, published_at, like_count, parent_id if duplicates exist.
+        - Uses Postgres `INSERT ... ON CONFLICT (org_id, yt_comment_id) DO UPDATE`.
+        - Conflict target matches the unique constraint defined in Comment.
+        - Updates author, text, published_at, like_count, parent_id if duplicates exist.
         - Commits changes at the end of execution.
     """
-    stmt = insert(Comment).values([
-        {
-            "org_id": org_id,
-            "video_id": video_id,
-            **c
-        }
-        for c in comments
-    ])
+    # Normalize payload → always set org_id and video_id from args
+    values = []
+    for c in comments:
+        values.append(
+            {
+                "org_id": org_id,
+                "video_id": video_id,
+                "yt_comment_id": c["yt_comment_id"],
+                "author": c.get("author"),
+                "text": c.get("text"),
+                "published_at": c.get("published_at"),
+                "like_count": c.get("like_count", 0),
+                "parent_id": c.get("parent_id"),
+            }
+        )
+
+    stmt = insert(Comment).values(values)
+
+    excluded = stmt.excluded
+
     stmt = stmt.on_conflict_do_update(
         index_elements=["org_id", "yt_comment_id"],
         set_={
-            "author": stmt.excluded.author,
-            "text": stmt.excluded.text,
-            "published_at": stmt.excluded.published_at,
-            "like_count": stmt.excluded.like_count,
-            "parent_id": stmt.excluded.parent_id,
+            "author": excluded.author,
+            "text": excluded.text,
+            "published_at": excluded.published_at,
+            "like_count": excluded.like_count,
+            "parent_id": excluded.parent_id,
         },
     )
+
     await db.execute(stmt)
     await db.commit()

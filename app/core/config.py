@@ -15,7 +15,6 @@ Related modules:
     - app/core/security.py → consumes JWT_SECRET_KEY and JWT_ALGORITHM.
 """
 
-
 from pydantic_settings import BaseSettings
 
 
@@ -39,7 +38,6 @@ class Settings(BaseSettings):
 
         YOUTUBE_API_KEY (str): API key for YouTube Data API.
     """
-
 
     PROJECT_NAME: str = "YouTube Sentiment Analyzer"
 
@@ -66,6 +64,7 @@ class Settings(BaseSettings):
             - Loads environment variables from `.env` file.
             - Useful for local dev; `.env.example` should be tracked for reference.
         """
+
         env_file = ".env"  # use .env in dev/prod, keep .env.example as template
 
 

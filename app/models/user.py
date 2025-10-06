@@ -20,7 +20,6 @@ Schema:
     └────────────┴────────────────────┴─────────────────┴─────────────┘
 """
 
-
 import uuid
 
 from sqlalchemy import Column, DateTime, String
@@ -39,6 +38,7 @@ class User(Base):
         hashed_password (str): Secure password hash.
         created_at (datetime): Timestamp when the user was created.
     """
+
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

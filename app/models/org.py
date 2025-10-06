@@ -21,7 +21,6 @@ Schema:
     └────────────┴───────────────┴─────────────┘
 """
 
-
 import uuid
 
 from sqlalchemy import Column, DateTime, String
@@ -39,6 +38,7 @@ class Org(Base):
         name (str): Organization name, unique per tenant.
         created_at (datetime): Timestamp when the org was created.
     """
+
     __tablename__ = "orgs"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))

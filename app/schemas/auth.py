@@ -14,7 +14,6 @@ Related modules:
     - app/core/deps.py → injects CurrentUser from decoded JWT.
 """
 
-
 from pydantic import BaseModel, EmailStr
 
 from app.models.membership import RoleEnum
@@ -22,6 +21,7 @@ from app.models.membership import RoleEnum
 
 class SignupRequest(BaseModel):
     """Request schema for user/org signup."""
+
     org_name: str
     email: EmailStr
     password: str
@@ -29,12 +29,14 @@ class SignupRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     """Request schema for user login."""
+
     email: EmailStr
     password: str
 
 
 class TokenResponse(BaseModel):
     """Response schema for returning a JWT access token."""
+
     access_token: str
     token_type: str = "bearer"
 
@@ -49,6 +51,7 @@ class TokenPayload(BaseModel):
         role (RoleEnum): User's role within the org.
         exp (int): Expiration timestamp (epoch).
     """
+
     sub: str
     org_id: str
     role: RoleEnum
@@ -61,6 +64,7 @@ class CurrentUser(BaseModel):
 
     Returned by dependencies to unify User + Org context for routes.
     """
+
     id: str
     email: EmailStr
     org_id: str

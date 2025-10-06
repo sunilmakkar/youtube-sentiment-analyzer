@@ -19,14 +19,12 @@ Related modules:
     - app/core/config.py → provides `HF_MODEL_NAME` from environment.
 """
 
-
 import os
-from typing import List, Dict
+from typing import Dict, List
 
 from transformers import pipeline
 
 from app.core.config import settings
-
 
 # Global variable to hold the loaded model instance
 _model = None
@@ -92,7 +90,7 @@ def analyze_batch(texts: List[str]) -> List[Dict[str, str]]:
             {
                 "label": label,
                 "score": float(r["score"]),
-                "model_name": settings.HF_MODEL_NAME
+                "model_name": settings.HF_MODEL_NAME,
             }
         )
     return normalized

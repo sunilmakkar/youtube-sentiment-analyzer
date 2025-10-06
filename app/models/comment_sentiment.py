@@ -16,12 +16,14 @@ Related modules:
     - app/tasks/analyze.py → Celery task that populates this table.
 """
 
-
-from sqlalchemy import Column, String, Float, DateTime, ForeignKey, UniqueConstraint
 import datetime
 import uuid
 
+from sqlalchemy import (Column, DateTime, Float, ForeignKey, String,
+                        UniqueConstraint)
+
 from app.db.base import Base
+
 
 class CommentSentiment(Base):
     """
@@ -36,6 +38,7 @@ class CommentSentiment(Base):
         model_name (str): Name of the model that generated the sentiment.
         analyzed_at (datetime): Timestamp when the analysis was performed.
     """
+
     __tablename__ = "comment_sentiment"
 
     # Primary key (UUID string for consistency with Comment model)
@@ -45,13 +48,19 @@ class CommentSentiment(Base):
     org_id = Column(String, ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
 
     # Reference back to comment
-    comment_id = Column(String, ForeignKey("comments.id", ondelete="CASCADE"), nullable=False)
+    comment_id = Column(
+        String, ForeignKey("comments.id", ondelete="CASCADE"), nullable=False
+    )
 
     # Sentiment analysis fields
-    label = Column(String, nullable=False) # pos | neg | neu
-    score = Column(Float, nullable=False) # confidence score
-    model_name = Column(String, nullable=False) # e.g. "distilbert-base-uncased-finetuned-sst-2-english"
+    label = Column(String, nullable=False)  # pos | neg | neu
+    score = Column(Float, nullable=False)  # confidence score
+    model_name = Column(
+        String, nullable=False
+    )  # e.g. "distilbert-base-uncased-finetuned-sst-2-english"
     analyzed_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
     # Enforce one sentiment per comment per org
-    __table_args__ = (UniqueConstraint("org_id", "comment_id", name="uq_org_comment_sentiment"),)
+    __table_args__ = (
+        UniqueConstraint("org_id", "comment_id", name="uq_org_comment_sentiment"),
+    )

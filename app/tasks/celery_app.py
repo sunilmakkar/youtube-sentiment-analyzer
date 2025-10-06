@@ -18,9 +18,9 @@ Related modules:
     - app/api/routes/health.py → monitors worker + model readiness.
 """
 
+import os
 
 from celery import Celery
-import os
 
 celery_app = Celery(
     "ytsa",
@@ -32,10 +32,6 @@ celery_app = Celery(
 celery_app.autodiscover_tasks(["app.tasks"])
 
 # Explicit imports ensure all tasks get registered
-import app.tasks.fetch
-import app.tasks.analyze
-import app.tasks.aggregate
-import app.tasks.keywords
 
 
 @celery_app.task(name="task.ping")
@@ -68,9 +64,10 @@ def warmup_model():
     Usage:
         >>> warmup_model.delay().get(timeout=30)
     """
-    from app.services import nlp_sentiment
     import redis
+
     from app.core.config import settings
+    from app.services import nlp_sentiment
 
     # Run once with a dummy input to trigger lazy loading
     nlp_sentiment.analyze_batch(["warmup"])
