@@ -106,11 +106,11 @@ Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README u
 - **Exit criteria:** Forced transient errors are retried; duplicates prevented; rate-limit responds 429.☑️
 
 
-**Phase 8 — Testing Pyramid & CI (1–2 days)**
-- Unit: youtube client (mock http), sentiment service (mock HF), aggregates, keywords, security
-- Integration: `/auth`, `/ingest→DB`, `/analytics/*` shapes; Celery in eager mode or test worker
-- Coverage ≥ 85% (stretch 90%); Github Actions: lint → test → build
-- **Exit criteria:** Local & CI green; coverage threshold enforced; failing cross-tenant tests prove isolation.
+**Phase 8 — Testing Pyramid & CI (1–2 days)**✅✅✅
+- Unit: youtube client (mock http), sentiment service (mock HF), aggregates, keywords, security☑️
+- Integration: `/auth`, `/ingest→DB`, `/analytics/*` shapes; Celery in eager mode or test worker☑️
+- Coverage ≥ 85% (stretch 90%); Github Actions: lint → test → build☑️
+- **Exit criteria:** Local & CI green; coverage threshold enforced; failing cross-tenant tests prove isolation.☑️
 
 
 **Phase 9 — API UX & Docs (1 day)**
