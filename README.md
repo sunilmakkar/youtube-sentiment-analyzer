@@ -99,11 +99,11 @@ Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README u
 - **Exit criteria:** Trend/distribution/keywords return correct shapes on seeded data.☑️
 
 
-**Phase 7 — Reliability: Retries, Idempotency, Rate Limits (1 day)**
-- Celery autoretry for transient HTTP errors with exponential backoff
-- Idempotent task design (safe re-runs); unique DB constraints verified
-- Simple per-org rate limit on `/ingest` (in-mem or Redis token bucket)
-- **Exit criteria:** Forced transient errors are retried; duplicates prevented; rate-limit responds 429.
+**Phase 7 — Reliability: Retries, Idempotency, Rate Limits (1 day)**✅✅✅
+- Celery autoretry for transient HTTP errors with exponential backoff☑️
+- Idempotent task design (safe re-runs); unique DB constraints verified☑️
+- Simple per-org rate limit on `/ingest` (in-mem or Redis token bucket)☑️
+- **Exit criteria:** Forced transient errors are retried; duplicates prevented; rate-limit responds 429.☑️
 
 
 **Phase 8 — Testing Pyramid & CI (1–2 days)**

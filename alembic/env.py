@@ -1,17 +1,43 @@
 from logging.config import fileConfig
+
 from sqlalchemy import engine_from_config, pool
+
 from alembic import context
-from app.db.base import Base
 from app.core.config import settings
+from app.db.base import Base
+
+
+print(">>> DEBUG: env.py loaded, running migrations mode:", "offline" if context.is_offline_mode() else "online")
 
 # Import models here so that Base.metadata is populated
-from app import models
+from app.models import (
+    comment,
+    comment_sentiment,
+    keyword,
+    membership,
+    org,
+    sentiment_aggregate,
+    user,
+    video,
+)
 
 # this is the Alembic Config object
 config = context.config
 
-# override sqlalchemy.url from .env settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("+asyncpg", ""))
+# --- Determine DB URL ---
+# Allow override via -x db_url=... (for tests), otherwise use settings
+x_args = context.get_x_argument(as_dictionary=True)
+if "db_url" in x_args:
+    db_url = x_args["db_url"]
+else:
+    db_url = settings.DATABASE_URL
+
+# ensure psycopg2 for Alembic
+if db_url.startswith("postgresql+asyncpg"):
+    db_url = db_url.replace("+asyncpg", "+psycopg2")
+
+config.set_main_option("sqlalchemy.url", db_url)
+
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -39,7 +65,7 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(connection=connection)
 
         with context.begin_transaction():
             context.run_migrations()
@@ -49,3 +75,4 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
+

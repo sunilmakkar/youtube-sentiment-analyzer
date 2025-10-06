@@ -7,6 +7,7 @@ Purpose:
 
 from app.tasks.celery_app import celery_app
 
+
 @celery_app.task(name="task.extract_keywords")
 def extract_keywords(video_id: str):
     """

@@ -15,7 +15,6 @@ Related modules:
     - app/api/routes/auth.py → uses membership to assign roles during signup/login.
 """
 
-
 import enum
 
 from sqlalchemy import Column, Enum, ForeignKey, String
@@ -24,9 +23,9 @@ from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 
-
 class RoleEnum(str, enum.Enum):
     """Role options for a membership: admin or member."""
+
     admin = "admin"
     member = "member"
 
@@ -44,6 +43,7 @@ class Membership(Base):
         user (User): ORM backref → list of user memberships.
         org (Org): ORM backref → list of org memberships.
     """
+
     __tablename__ = "memberships"
 
     user_id = Column(String, ForeignKey("users.id"), primary_key=True)

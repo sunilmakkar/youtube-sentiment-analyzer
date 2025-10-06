@@ -17,20 +17,20 @@ Related modules:
     - app/tasks/aggregate.py → Celery entrypoints.
 """
 
-
-from sqlalchemy import select, func, case
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
+from sqlalchemy import case, func, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.comment import Comment
 from app.models.comment_sentiment import CommentSentiment
 from app.models.sentiment_aggregate import SentimentAggregate
-from app.models.comment import Comment
 
 
 async def compute_and_store_trend(
     session: AsyncSession, video_id: str, org_id: str, window: str = "day"
-) -> int:
+) -> list[dict]:
     """
     Compute and persist sentiment aggregates for a video.
 
@@ -41,27 +41,35 @@ async def compute_and_store_trend(
         window (str): Time window granularity ("day", "week", etc.).
 
     Returns:
-        int: Number of aggregate rows inserted or updated.
+        list[dict]: One entry per time bucket with:
+            - window_start: datetime
+            - window_end: datetime
+            - pos_pct: float
+            - neg_pct: float
+            - neu_pct: float
+            - count: int
     """
     stmt = (
-    select(
-        func.date_trunc(window, CommentSentiment.analyzed_at).label("bucket"),
-        func.count().label("count"),
-        func.avg(case((CommentSentiment.label == "pos", 1), else_=0)).label("pos_pct"),
-        func.avg(case((CommentSentiment.label == "neg", 1), else_=0)).label("neg_pct"),
-        func.avg(case((CommentSentiment.label == "neu", 1), else_=0)).label("neu_pct"),
+        select(
+            func.date_trunc(window, CommentSentiment.analyzed_at).label("bucket"),
+            func.count().label("count"),
+            func.avg(case((CommentSentiment.label == "pos", 1), else_=0)).label("pos_pct"),
+            func.avg(case((CommentSentiment.label == "neg", 1), else_=0)).label("neg_pct"),
+            func.avg(case((CommentSentiment.label == "neu", 1), else_=0)).label("neu_pct"),
+        )
+        .join(
+            Comment, Comment.id == CommentSentiment.comment_id
+        )  # join through Comment
+        .where(CommentSentiment.org_id == org_id)
+        .where(Comment.video_id == video_id)  # filter on video_id via Comment
+        .group_by("bucket")
+        .order_by("bucket")
     )
-    .join(Comment, Comment.id == CommentSentiment.comment_id)  # join through Comment
-    .where(CommentSentiment.org_id == org_id)
-    .where(Comment.video_id == video_id)                       # filter on video_id via Comment
-    .group_by("bucket")
-    .order_by("bucket")
-)
 
     result = await session.execute(stmt)
     rows = result.mappings().all()
 
-    inserted = 0
+    aggregates = []
     for r in rows:
         window_start: datetime = r["bucket"]
         window_end: datetime = window_start.replace(hour=23, minute=59, second=59)
@@ -86,10 +94,10 @@ async def compute_and_store_trend(
             )
         )
         await session.execute(insert_stmt)
-        inserted += 1
-    
+        aggregates.append(values)
+
     await session.commit()
-    return inserted
+    return aggregates
 
 
 async def compute_distribution(
@@ -112,12 +120,14 @@ async def compute_distribution(
         }
     """
     stmt = (
-    select(CommentSentiment.label, func.count().label("count"))
-    .join(Comment, Comment.id == CommentSentiment.comment_id)  # join through Comment
-    .where(CommentSentiment.org_id == org_id)
-    .where(Comment.video_id == video_id)                       # filter on video_id via Comment
-    .group_by(CommentSentiment.label)
-)   
+        select(CommentSentiment.label, func.count().label("count"))
+        .join(
+            Comment, Comment.id == CommentSentiment.comment_id
+        )  # join through Comment
+        .where(CommentSentiment.org_id == org_id)
+        .where(Comment.video_id == video_id)  # filter on video_id via Comment
+        .group_by(CommentSentiment.label)
+    )
     result = await session.execute(stmt)
     rows = result.mappings().all()
 

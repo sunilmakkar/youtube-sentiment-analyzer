@@ -17,7 +17,6 @@ Related modules:
     - app/schemas/auth.py → request/response schemas.
 """
 
-
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -76,9 +75,7 @@ async def signup(
 
 
 @router.post("/login", response_model=schemas.TokenResponse)
-async def login(
-    payload: schemas.LoginRequest, db: AsyncSession = Depends(get_session)
-):
+async def login(payload: schemas.LoginRequest, db: AsyncSession = Depends(get_session)):
     """
     Authenticate a user and return a JWT token.
 

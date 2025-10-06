@@ -12,6 +12,7 @@ Related modules:
     - sqlalchemy.orm.declarative_base → factory function to create the base class.
     - app.models.* → all ORM models extend this Base.
 """
+
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()

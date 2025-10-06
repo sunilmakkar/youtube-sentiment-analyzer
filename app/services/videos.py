@@ -16,14 +16,17 @@ Related modules:
     - app/tasks/fetch.py → calls `upsert_video` during ingestion.
 """
 
-
+import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.video import Video
-import sqlalchemy as sa
 
-async def upsert_video(db: AsyncSession, org_id: str, video_id: str, meta: dict) -> Video:
+from app.models.video import Video
+
+
+async def upsert_video(
+    db: AsyncSession, org_id: str, video_id: str, meta: dict
+) -> Video:
     """
     Insert or update a video for this org, returning the persisted Video row.
 
@@ -62,7 +65,6 @@ async def upsert_video(db: AsyncSession, org_id: str, video_id: str, meta: dict)
             "last_analyzed_at": sa.func.now(),
         },
     ).returning(Video.id)
-    
 
     result = await db.execute(stmt)
     video_pk = result.scalar_one()

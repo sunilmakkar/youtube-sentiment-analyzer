@@ -24,9 +24,10 @@ Schema:
     └────────────┴──────────────┴────────────┴───────────────┴───────────────┴─────────────┴─────────────┴────────────┘
 """
 
-
 import uuid
-from sqlalchemy import Column, DateTime, String, Float, Integer, ForeignKey, UniqueConstraint
+
+from sqlalchemy import (Column, DateTime, Float, ForeignKey, Integer, String,
+                        UniqueConstraint)
 from sqlalchemy.sql import func
 
 from app.db.base import Base
@@ -48,19 +49,30 @@ class SentimentAggregate(Base):
         count (int): Total number of comments analyzed in the window.
         created_at (datetime): Row creation timestamp.
     """
+
     __tablename__ = "sentiment_aggregates"
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     org_id = Column(String, ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
-    video_id = Column(String, ForeignKey("videos.id", ondelete="CASCADE"), nullable=False)
+    video_id = Column(
+        String, ForeignKey("videos.id", ondelete="CASCADE"), nullable=False
+    )
     window_start = Column(DateTime(timezone=True), nullable=False)
     window_end = Column(DateTime(timezone=True), nullable=False)
     pos_pct = Column(Float, nullable=False)
     neg_pct = Column(Float, nullable=False)
     neu_pct = Column(Float, nullable=False)
     count = Column(Integer, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     __table_args__ = (
-        UniqueConstraint("org_id", "video_id", "window_start", "window_end", name="uq_org_video_window"),
+        UniqueConstraint(
+            "org_id",
+            "video_id",
+            "window_start",
+            "window_end",
+            name="uq_org_video_window",
+        ),
     )

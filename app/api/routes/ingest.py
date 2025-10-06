@@ -15,15 +15,13 @@ Related modules:
     - app/tasks/celery_app.py → Celery app instance.
 """
 
-
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.deps import get_current_user
 from app.schemas.auth import CurrentUser
+from app.services.rate_limiter import check_rate_limit
 from app.tasks.celery_app import celery_app
 from app.tasks.fetch import fetch_comments_task
-from app.services.rate_limiter import check_rate_limit
-
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 
@@ -62,7 +60,6 @@ async def ingest_video(
     # Enqueue Celery task
     task = fetch_comments_task.delay(video_id, current_user.org_id)
     return {"task_id": task.id}
-
 
 
 @router.get("/status/{task_id}")

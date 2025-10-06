@@ -23,11 +23,11 @@ Entrypoints:
     - analyze_comments_task(video_id, org_id) → Celery task wrapper.
 """
 
+from datetime import datetime
 
 from asgiref.sync import async_to_sync
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
 
 from app.db.session import async_session
 from app.models import Comment, CommentSentiment, Video
@@ -42,8 +42,6 @@ from app.tasks.celery_app import celery_app
     max_retries=5,
     name="task.analyze_comments",
 )
-
-
 def analyze_comments_task(self, video_id: str, org_id: str):
     """
     Celery entrypoint for sentiment analysis.

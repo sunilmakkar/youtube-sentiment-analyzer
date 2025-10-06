@@ -22,14 +22,14 @@ Related modules:
     - app/models/comment.py → comment schema definition.
 """
 
-
 from asgiref.sync import async_to_sync
+
 from app.db.session import async_session
-from app.services.youtube_client import fetch_comments, fetch_video_metadata
 from app.services.dedupe import upsert_comments
 from app.services.videos import upsert_video
-from app.tasks.celery_app import celery_app
+from app.services.youtube_client import fetch_comments, fetch_video_metadata
 from app.tasks.analyze import analyze_comments_task
+from app.tasks.celery_app import celery_app
 
 
 @celery_app.task(
@@ -54,7 +54,6 @@ def fetch_comments_task(self, video_id: str, org_id: str):
         }
     """
     return async_to_sync(_fetch_comments)(video_id, org_id)
-
 
 
 async def _fetch_comments(video_id: str, org_id: str):
@@ -94,4 +93,3 @@ async def _fetch_comments(video_id: str, org_id: str):
     analyze_comments_task.delay(video_id, org_id)
 
     return {"video_id": video_id, "comments_fetched": total}
-

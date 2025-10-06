@@ -15,12 +15,12 @@ Related modules:
     - app/schemas/comment.py → response schema (CommentOut).
 """
 
-
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.db.session import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.deps import get_current_user
+from app.db.session import get_session
 from app.models.comment import Comment
 from app.schemas.comment import CommentOut
 
@@ -71,7 +71,5 @@ async def get_comments(
 
     # if has_sentiment is requested, add a placeholder key
     if has_sentiment:
-        return [
-            {**c.__dict__, "sentiment": None} for c in results
-        ]
+        return [{**c.__dict__, "sentiment": None} for c in results]
     return results

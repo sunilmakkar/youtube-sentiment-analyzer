@@ -14,7 +14,6 @@ Related modules:
     - app/api/routes/health.py → system-level health checks.
 """
 
-
 from fastapi import APIRouter, Depends
 
 from app.core.deps import get_current_user
