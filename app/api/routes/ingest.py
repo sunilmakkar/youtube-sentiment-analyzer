@@ -19,36 +19,28 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.deps import get_current_user
 from app.schemas.auth import CurrentUser
+from app.schemas.ingest import IngestResponse, TaskStatusResponse
 from app.services.rate_limiter import check_rate_limit
 from app.tasks.celery_app import celery_app
 from app.tasks.fetch import fetch_comments_task
 
-router = APIRouter(prefix="/ingest", tags=["ingest"])
+router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
 
-@router.post("/")
+@router.post(
+    "/",
+    response_model=IngestResponse,
+    summary="Ingest YouTube comments",
+    description=(
+        "Triggers an asynchronous Celery task that fetches YouTube comments for "
+        "the given `video_id` and stores them in the database. "
+        "Returns a unique task ID for tracking progress."
+    ),
+)
 async def ingest_video(
-    video_id: str = Query(..., description="YouTube video_id"),
+    video_id: str = Query(..., description="YouTube video_id to ingest"),
     current_user: CurrentUser = Depends(get_current_user),
 ):
-    """
-    Ingest YouTube comments for a given video.
-
-    Steps:
-        1. Check per-org rate limit (token bucket in Redis).
-        2. If allowed, enqueue Celery task to fetch and persist comments.
-        3. Return task_id so client can track status.
-        4. If limit exceeded, return 429 Too Many Requests.
-
-    Args:
-        video_id (str): YouTube video ID to ingest.
-        current_user (CurrentUser): User/org context from JWT.
-
-    Returns:
-        dict: JSON with Celery task ID.
-            Example:
-            {"task_id": "e8d9a83f-3b2c-4c3c-b8d7-5f4a5bbdfe1a"}
-    """
     # Rate limit check (per-org)
     allowed = await check_rate_limit(current_user.org_id)
     if not allowed:
@@ -62,25 +54,15 @@ async def ingest_video(
     return {"task_id": task.id}
 
 
-@router.get("/status/{task_id}")
+@router.get(
+    "/status/{task_id}",
+    response_model=TaskStatusResponse,
+    summary="Get ingestion task status",
+    description=(
+        "Returns the Celery task status (PENDING, SUCCESS, FAILURE) "
+        "and its result if available. Used by clients to monitor ingestion progress."
+    ),
+)
 async def get_task_status(task_id: str):
-    """
-    Get status of an ingestion task.
-
-    Uses Celery AsyncResult to report status and result
-    of a previously submitted ingestion task.
-
-    Args:
-        task_id (str): Celery task ID.
-
-    Returns:
-        dict: JSON with task ID, status, and result.
-            Example:
-            {
-                "task_id": "e8d9a83f-3b2c-4c3c-b8d7-5f4a5bbdfe1a",
-                "status": "SUCCESS",
-                "result": {"video_id": "abc123", "comments_fetched": 42}
-            }
-    """
     res = celery_app.AsyncResult(task_id)
     return {"task_id": task_id, "status": res.status, "result": res.result}

@@ -1,166 +1,297 @@
-# YouTube Sentiment Analyzer (YSA)
+# YouTube Sentiment Analyzer (YTSA) API
 
-Async FastAPI service that ingests YouTube comments, runs sentiment analysis, and exposes analytics.
+[![Tests](https://img.shields.io/badge/Tests-≥80%25-brightgreen)](#)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)  
+[![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org/)  
+[![FastAPI](https://img.shields.io/badge/FastAPI-Framework-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-informational?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-## Quickstart
-```bash
-conda env create -f environment.yml
-docker compose up
-visit http://localhost:8000/docs
+
+The YouTube Sentiment Analyzer (YTSA) is a multi-tenant API that ingests YouTube comments asynchronously, performs sentiment analysis using a HuggingFace model, and exposes analytics via REST.
+
+---
+
+## Overview
+
+YTSA is designed for developers and data engineers looking to integrate YouTube comment sentiment analysis into their applications or analytics pipelines.  
+
+The system provides:  
+
+- Multi-tenant authentication scoped by organization (`org_id` via JWT)  
+- Async ingestion and processing using Celery + Redis  
+- Sentiment analysis via HuggingFace transformer models  
+- REST endpoints for trends, distributions, and keyword frequencies  
+- Health and readiness probes for orchestration and CI/CD pipelines  
+
+---
+
+## Why I Built This
+
+I built YTSA to deepen my backend development skills and gain hands-on experience with modern frameworks and tools. Specifically, I wanted to learn FastAPI, explore asynchronous processing pipelines using Celery and Redis, and build a production-style API with multi-tenant authentication, PostgreSQL, and comprehensive testing. This project reflects my focus on designing scalable, well-structured backend systems that mirror real-world engineering environments.
+
+### Data Flow
+
+When a video is ingested, the API enqueues a Celery task that fetches comments from the YouTube API, applies HuggingFace sentiment models asynchronously, and persists the results in PostgreSQL. Redis acts as both the broker and cache layer, enabling scalable parallel processing.
+
+---
+
+## Features
+
+- ✅ Multi-tenant auth with JWT  
+- ✅ Async ingestion pipeline for YouTube comments  
+- ✅ Sentiment trend and distribution endpoints  
+- ✅ Top keyword extraction for videos  
+- ✅ Health (`/health/healthz`) and readiness (`/health/readyz`) endpoints  
+
+---
+
+## Architecture
+```
+                  +----------------+
+                  |   FastAPI API  |
+                  +--------+-------+
+                           |
+                           v
+                   +---------------+
+                   |   Celery      |
+                   |  (async tasks)|
+                   +-------+-------+
+                           |
+          +----------------+----------------+
+          |                                 |
+          v                                 v
+    +------------+                     +---------+
+    |  Redis     |                     | PostgreSQL |
+    |  (Broker   |                     | (Storage)  |
+    |   & Cache) |                     +------------+
+    +------------+
+                           |
+                           v
+                 +--------------------+
+                 | HuggingFace Model  |
+                 | (Sentiment Analysis)|
+                 +--------------------+
 ```
 
+---
+
+**Tech Stack:**
+
+- FastAPI — REST API framework  
+- SQLAlchemy 2.x + PostgreSQL — relational data storage  
+- Redis — caching and Celery broker  
+- Celery — async task processing  
+- HuggingFace Transformers — sentiment analysis  
+- Docker Compose — container orchestration for dev environment  
+- Pytest — testing framework  
+- OpenAPI / Swagger UI — interactive API documentation  
 
 ---
 
+## Quick Start
 
-## `PRD.md`
+### **Clone the repo**
 
-### 1. Goals and Success Metrics
-| Objective                                                                             | Measurable Outcome                                                                                                                    |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Provide org-scoped sentiment analytics for YouTube videos via REST                    | ✔ `/ingest`, `/status`, `/comments`, `/analytics/*` return correct shapes (unit/integration tested) ✔ Idempotent ingestion (no dupes) |
-| Demonstrate professional backend craft (FastAPI, Celery, SQLAlchemy, JWT, Docker, CI) | ✔ ≥ 85% coverage (stretch 90%) ✔ GitHub Actions green on every push ✔ `docker compose up` full stack in < 60s on dev                  |
-| Operate like production: async jobs, retries, health & observability                  | ✔ `/healthz` reports API/DB/Redis/Celery/model OK ✔ Celery retries/backoff for API quota/5xx ✔ Flower shows active workers            |
-| Multi-tenancy & security                                                              | ✔ JWT with `org_id` claim enforced on all data access ✔ Cross-tenant access tests fail with 403                                       |
-| Portfolio polish                                                                      | ✔ README with architecture diagram + curl examples ✔ Clear PRD + Roadmap + live Swagger on local/prod                                 |
+```bash
+git clone https://github.com/sunilmakkar/youtube-sentiment-analyzer
+cd ytsa
+```
 
+### Activate Conda environment
+```bash
+conda create -n ytsa python=3.11 -y
+conda activate ytsa
+```
 
-### 2. Tech Stack Lock-In
-- **Language & Runtime:** Python 3.11 (Conda env `ytsa`)
-- **API:** FastAPI, Uvicorn (dev), Gunicorn+UvicornWorker (prod), Pydantic v2
-- **Auth:** PyJWT / passlib[bcrypt] (JWT access tokens with `org_id`, `role`)
-- **Data:** PostgreSQL 16, SQLAlchemy 2.x, Alembic
-- **Queue & Cache:** Redis 7, Celery 5, Flower (monitoring)
-- **ML (inference only):** HuggingFace Transformers (`distilbert-base-uncased-finetuned-sst-2-english`), torch (CPU), nltk / scikit-learn for keywords/stopwords
-- **HTTP & Testing:** httpx, pytest, pytest-asyncio, pytest-cov, Faker
-- **Quality:** ruff, black, isort, pre-commit (optional)
-- **Containers & CI:** Dockerfile(s), docker-compose (dev/prod), GitHub Actions CI
-- **Secrets/Config:** `.env.example` + platform secrets (no real secrets committed)
+### Start services with Docker Compose
+```bash
+docker compose up -d --build
+```
 
-
-### 3. Milestones & Check-lists
-Work in order; commit & tag at end of each phase (`v0.x`). Keep PRD and README updated.
-
-**Phase 0 — Bootstrap & Environment (½ day)**✅✅✅
-- Create repo `youtube-sentiment-analyzer` (MIT/Apache license)☑️
-- Add `.gitignore`, `PRD.md` (this), `README.md` placeholder☑️
-- Add `requirements.txt`☑️
-- Add `.env.example` with: `DATABASE_URL`, `REDIS_URL`, `CELERY_*`, `YOUTUBE_API_KEY`, `SECRET_KEY`, `HF_MODEL_NAME`, `ACCESS_TOKEN_EXPIRE_MINUTES`☑️
-- `docker-compose.yml` skeleton: `api`, `worker`, `db`(Postgres), `redis`, `flower`☑️
-- Two Dockerfiles in `docker/`: `api.Dockerfile`, `worker.Dockerfile`☑️
-- **Exit criteria:** `conda env create -f environment.yml && docker compose up` brings up all services; `GET /docs` loads (empty app OK).☑️
-
-**Phase 1 — App Scaffolding & Health (1 day)**✅✅✅
-- FastAPI app factory (`app/main.py`), include routers☑️
-- Core config via Pydantic `BaseSettings` (`app/core/config.py`)☑️
-- DB engine/session, Base, Alembic init & baseline migration☑️
-- Health route `/healthz:` API up, DB ping, Redis ping, Celery ping, HF model “ready=false” (lazy load)☑️
-- Structured logging setup☑️
-- **Exit criteria:** `alembic upgrade` head runs in container; `/healthz` returns all OK (model can be “not_loaded” but endpoint works).☑️
+- API: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 
-**Phase 2 — Auth & Multi-Tenancy (1–2 days)**✅✅✅
-- Models: `orgs`, `users`, `memberships (role: admin|member)`☑️
-- Password hashing (bcrypt), JWT issue/verify; claims include `sub`, `org_id`, `role`, `exp`☑️
-- Routes: `/auth/signup`, `/auth/login` (returns access token)☑️
-- Dependency that injects `current_user` and `org_id;` protect all non-auth routes☑️
-- **Exit criteria:** Auth flow tested; protected route returns 401/403 without/with wrong token; org isolation enforced in queries.☑️
+![Swagger UI Overview](resources/YTSA-SwaggerDocs.png)
 
 
-**Phase 3 — Video & Ingestion API (2 days)**✅✅✅
-- Tables: `videos(org_id, yt_video_id unique per org, title, channel_id, fetched_at, last_analyzed_at)`☑️
-- `POST /ingest?video_id=XYZ`: upsert `videos`, enqueue Celery `fetch_comments(video_id, org_id)`☑️
-- `GET /status/{task_id}`: surface Celery task state☑️
-- YouTube client service: pagination, normalization, basic backoff on quota (429/403), small request budget per run☑️
-- **Exit criteria:** Ingest a real `video_id` → pages fetched and written to DB (idempotent); `/status` shows progress.☑️
+![Analytics Endpoint](resources/swaggerdocs-analytics.png)
 
 
-**Phase 4 — Comments Persistence & Idempotency (1 day)**✅✅✅
-- Tables: `comments(org_id, video_id, yt_comment_id unique per org, author, text, published_at, like_count, parent_id)`☑️
-- Deduping service (upsert by `(org_id, yt_comment_id)`); safe re-ingest☑️
-- `GET /comments?video_id=...&limit&offset&has_sentiment=bool`☑️
-- **Exit criteria:** Re-running ingest does not create duplicates; `/comments` paginates and optionally joins sentiment.☑️
+![Analytics Response Example](resources/swagger-docs-analytics-response.png)
 
 
-**Phase 5 — Sentiment Inference (2 days)***✅✅✅
-- Table: `comment_sentiment(org_id, comment_id unique, label[pos|neg|neu], score, model_name, analyzed_at)`☑️
-- HF pipeline lazy-loaded once per worker; batch processing (`BATCH_SIZE` env)☑️
-- Celery `analyze_comments(video_id, org_id)`: process only unanalyzed comments☑️
-- **Exit criteria:** Batch sentiment persisted; cold worker warms up once; health shows `model.loaded=true` after first inference.☑️
-
-
-**Phase 6 — Aggregates & Keywords (2 days)**✅✅✅
-- Tables: `sentiment_aggregates(org_id, video_id, window_start, window_end, pos_pct, neg_pct, neu_pct, count)`; `keywords(org_id, video_id, term, count, last_updated_at)`☑️
-- Celery tasks: `compute_sentiment_trend(video_id, org_id, window='daily')`, `compute_keywords(video_id, org_id, top_k=25)`☑️
-- Analytics routes:☑️
- - `GET /analytics/sentiment-trend?video_id=...&window=daily&start&end`☑️
- - `GET /analytics/distribution?video_id=...`☑️
- - `GET /analytics/keywords?video_id=...&top_k=25`☑️
-- **Exit criteria:** Trend/distribution/keywords return correct shapes on seeded data.☑️
-
-
-**Phase 7 — Reliability: Retries, Idempotency, Rate Limits (1 day)**✅✅✅
-- Celery autoretry for transient HTTP errors with exponential backoff☑️
-- Idempotent task design (safe re-runs); unique DB constraints verified☑️
-- Simple per-org rate limit on `/ingest` (in-mem or Redis token bucket)☑️
-- **Exit criteria:** Forced transient errors are retried; duplicates prevented; rate-limit responds 429.☑️
-
-
-**Phase 8 — Testing Pyramid & CI (1–2 days)**✅✅✅
-- Unit: youtube client (mock http), sentiment service (mock HF), aggregates, keywords, security☑️
-- Integration: `/auth`, `/ingest→DB`, `/analytics/*` shapes; Celery in eager mode or test worker☑️
-- Coverage ≥ 85% (stretch 90%); Github Actions: lint → test → build☑️
-- **Exit criteria:** Local & CI green; coverage threshold enforced; failing cross-tenant tests prove isolation.☑️
-
-
-**Phase 9 — API UX & Docs (1 day)**
-- Pydantic schemas for request/response; descriptive tags; examples in OpenAPI
-- Swagger UI `/docs` + ReDoc `/redoc`
-- README sections: problem, quick start (Conda + Docker), curl examples, architecture diagram, limits & future work
-- **Exit criteria:** A new dev can run the stack and try cURL in < 10 minutes.
-
-
-**Phase 10 — Prod Profile & Deploy (1 day, stretch)**
-- `docker-compose.prod.yml`: Gunicorn, no reload, resource limits
-- Entrypoint to run `alembic upgrade head` on boot
-- Platform secrets wired (no `.env` in prod)
-- Optional deploy (Fly.io/Render/DO)
-- **Exit criteria:** `/healthz OK` in prod stack; logs clean; minimal resources.
-
+![Ingest Response Example](resources/redoc-yt-ingest.png)
 
 ---
 
+## Authentication
+Signup / Login endpoints provide a JWT token:
+```bash
+TOKEN="paste_your_access_token_here"
+```
 
-### 4. Bonus / Future Backlog
-| Idea                                             | Value                                 |
-| ------------------------------------------------ | ------------------------------------- |
-| Celery Beat (scheduled recompute & stale checks) | Autonomously keeps aggregates fresh   |
-| Redis caching for hot analytics                  | Low-latency UX under repeated queries |
-| WebSocket stream for live ingest sentiment       | Real-time “ticker” during ingestion   |
-| Aspect-based sentiment or topic modeling (LDA)   | Deeper insights beyond polarity       |
-| Postgres RLS for hard multi-tenancy              | Defense-in-depth at DB layer          |
-| OpenTelemetry + Grafana/Tempo/Prom               | Observability story for recruiters    |
-| Fly.io/Render deploy with custom domain          | Shareable live demo                   |
+## API Endpoints
 
-
----
-
-
-### 5. Acceptance Checklist (Copy into README)
-- Bootstrap: Conda env + Docker stack up; `/docs` & `/healthz` reachable
-- Auth: `/auth/signu`p + `/auth/login` issue JWT with `org_id`; protected routes enforce scope
-- Ingestion: `/ingest` enqueues; `/status` reflects progress; YouTube pagination stored idempotently
-- Persistence: `comments` unique by `(org_id, yt_comment_id)`; re-ingest safe
-- Sentiment: batched inference stored in `comment_sentiment`; model loads once per worker
-- Analytics: `/analytics/sentiment-trend`, `/distribution`, `/keywords` correct on seeded data
-- Reliability: retries/backoff; basic rate-limit on `/ingest`
-- Quality: ≥ 85% coverage; CI green; lint/format clean
-- Docs: Swagger with examples; README quick-start + curl + diagram
-- (Stretch) Prod compose runs with Gunicorn; migrations on boot; `/healthz` OK
-
+| Endpoint                     | Method | Description                                |
+| ---------------------------- | ------ | ------------------------------------------ |
+| `/auth/signup`               | POST   | Create org + admin user                    |
+| `/auth/login`                | POST   | Authenticate user & get JWT                |
+| `/auth/me`                   | GET    | Current user info                          |
+| `/ingest/`                   | POST   | Trigger async comment ingestion            |
+| `/ingest/status/{task_id}`   | GET    | Check ingestion task status                |
+| `/comments/`                 | GET    | Retrieve comments (pagination + sentiment) |
+| `/analytics/sentiment-trend` | GET    | Time-bucketed sentiment trend              |
+| `/analytics/distribution`    | GET    | Overall sentiment distribution             |
+| `/analytics/keywords`        | GET    | Top keyword frequencies                    |
+| `/health/healthz`            | GET    | Liveness probe                             |
+| `/health/readyz`             | GET    | Readiness probe                            |
 
 ---
 
+## Example cURL Commands
+
+### Auth
+``````bash
+# Signup
+curl -X POST http://localhost:8000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+        "org_name": "YourOrgName",
+        "email": "your-email@example.com",
+        "password": "yourpassword"
+      }'
+
+# Expected response:
+# {
+#   "access_token": "<JWT_TOKEN>",
+#   "token_type": "bearer"
+# }
+
+# Login and manually save token
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+        "email": "your-email@example.com",
+        "password": "yourpassword"
+      }'
+
+# Save token
+TOKEN="paste_your_access_token_here"
+
+# Get current user
+curl -X GET http://localhost:8000/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected response:
+# {
+#   "id": "<USER_UUID>",
+#   "email": "your-email@example.com",
+#   "org_id": "<ORG_UUID>",
+#   "role": "admin"
+# }
+```
+
+### Health
+```bash
+curl -X GET http://localhost:8000/health/healthz
+# Expected response:
+# {"status":"ok"}
+
+curl -X GET http://localhost:8000/health/readyz
+# Example expected response:
+# {
+#   "status":"ok",
+#   "checks":{
+#       "db":{"status":"ok","latency_ms":5.2},
+#       "redis":{"status":"ok","latency_ms":4.8},
+#       "celery":{"status":"ok","latency_ms":30.1},
+#       "hf_model":{"status":"not_loaded","loaded":false}
+#   }
+# }
+```
+
+### Ingest
+```bash
+curl -X POST "http://localhost:8000/ingest/?video_id=<VIDEO_ID>" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Expected response:
+# {"task_id": "<TASK_UUID>"}
+
+curl -X GET "http://localhost:8000/ingest/status/<TASK_UUID>" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Example expected responses while polling:
+# {"task_id":"<TASK_UUID>","status":"PENDING","result":null}
+# {"task_id":"<TASK_UUID>","status":"SUCCESS","result":null}
+```
+
+### Comments
+```bash
+curl -X GET "http://localhost:8000/comments/?video_id=<VIDEO_ID>&limit=50&offset=0&has_sentiment=false" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Example expected response:
+# [
+#   {
+#     "id": "<COMMENT_UUID>",
+#     "video_id": "<VIDEO_ID>",
+#     "org_id": "<ORG_UUID>",
+#     "text": "This is a comment",
+#     "created_at": "2025-10-10T12:00:00Z"
+#   },
+#   ...
+# ]
+```
+
+### Analytics
+```bash
+# Sentiment trend
+curl -X GET "http://localhost:8000/analytics/sentiment-trend?video_id=<VIDEO_ID>&window=day" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Example expected response:
+# {
+#   "trend":[
+#     {"window_start":"2025-10-09T00:00:00Z","window_end":"2025-10-09T23:59:59Z",
+#      "pos_pct":60,"neg_pct":20,"neu_pct":20,"count":50}
+#   ]
+# }
+
+# Distribution
+curl -X GET "http://localhost:8000/analytics/distribution?video_id=<VIDEO_ID>" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Example expected response:
+# {"pos_pct":60,"neg_pct":20,"neu_pct":20,"count":50}
+
+# Top Keywords
+curl -X GET "http://localhost:8000/analytics/keywords?video_id=<VIDEO_ID>&top_k=25" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Example expected response:
+# {"keywords":[{"term":"awesome","count":5},{"term":"fun","count":3},...]}
+```
+
+---
+
+## Health & Readiness
+
+- /health/healthz — always returns {"status":"ok"}
+- /health/readyz — checks DB, Redis, Celery, HuggingFace model loaded status
+
+---
+
+## Future Work/ Limitations
+
+1. Real-time video ingestion from YouTube API
+2. Sentiment scoring refinements and caching strategies
+3. Multi-language comment support
+4. Improved error handling for edge cases
+
+---
 
 ## `LICENSE` (MIT example)
 

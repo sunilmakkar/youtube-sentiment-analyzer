@@ -1,8 +1,9 @@
 """
 File: analytics.py
-Purpose:
-    Provide analytics endpoints for sentiment trends, distributions,
-    and keyword frequencies derived from YouTube comments.
+Layer: API
+-----------
+Provide analytics endpoints for sentiment trends, distributions,
+and keyword frequencies derived from YouTube comments.
 
 Key responsibilities:
     - Expose pre-computed sentiment trend aggregates.
@@ -13,8 +14,8 @@ Key responsibilities:
 Related modules:
     - app/services/aggregates.py → computes trends + distribution.
     - app/services/keywords.py → extracts and stores keyword stats.
-    - app/tasks/aggregate.py → background Celery tasks.
     - app/core/deps.py → provides DB session + authenticated user context.
+    - app/schemas/analytics.py → defines Pydantic response models.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,9 +25,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_session
 from app.models import Video
 from app.schemas.auth import CurrentUser
+from app.schemas.analytics import (
+    SentimentTrendResponse,
+    SentimentDistributionResponse,
+    KeywordsResponse,
+)
 from app.services import aggregates, keywords
 
-router = APIRouter()
+router = APIRouter(tags=["analytics"])
 
 
 async def _resolve_video_uuid(db: AsyncSession, org_id: str, yt_video_id: str) -> str:
@@ -46,7 +52,12 @@ async def _resolve_video_uuid(db: AsyncSession, org_id: str, yt_video_id: str) -
     return row
 
 
-@router.get("/analytics/sentiment-trend")
+@router.get(
+    "/analytics/sentiment-trend",
+    response_model=SentimentTrendResponse,
+    summary="Get sentiment trend for a video",
+    response_description="List of time-bucketed sentiment percentages.",
+)
 async def sentiment_trend(
     video_id: str = Query(..., description="Target YouTube video ID (external)"),
     window: str = Query("day", description="Aggregation window (e.g., 'day', 'week')"),
@@ -56,20 +67,11 @@ async def sentiment_trend(
     """
     Get sentiment trend aggregates for a video.
 
-    Args:
-        video_id (str): External YouTube video ID.
-        window (str): Aggregation window granularity ("day" default).
-        db (AsyncSession): Async DB session dependency.
-        user (CurrentUser): Authenticated user context.
-
     Returns:
-        list[dict]: One entry per time bucket with:
-            - window_start: datetime
-            - window_end: datetime
-            - pos_pct: float
-            - neg_pct: float
-            - neu_pct: float
-            - count: int
+        SentimentTrendResponse: One entry per time bucket with:
+            - window_start / window_end
+            - pos_pct / neg_pct / neu_pct
+            - count
     """
     video_uuid = await _resolve_video_uuid(db, user.org_id, video_id)
     trend = await aggregates.compute_and_store_trend(
@@ -78,7 +80,12 @@ async def sentiment_trend(
     return {"trend": trend}
 
 
-@router.get("/analytics/distribution")
+@router.get(
+    "/analytics/distribution",
+    response_model=SentimentDistributionResponse,
+    summary="Get overall sentiment distribution for a video",
+    response_description="Proportional breakdown of sentiments for a video.",
+)
 async def sentiment_distribution(
     video_id: str = Query(..., description="Target YouTube video ID (external)"),
     db: AsyncSession = Depends(get_session),
@@ -87,24 +94,21 @@ async def sentiment_distribution(
     """
     Get overall sentiment distribution for a video.
 
-    Args:
-        video_id (str): External YouTube video ID.
-        db (AsyncSession): Async DB session dependency.
-        user (CurrentUser): Authenticated user context.
-
     Returns:
-        dict: {
-            "pos_pct": float,
-            "neg_pct": float,
-            "neu_pct": float,
-            "count": int
+        SentimentDistributionResponse: {
+            pos_pct, neg_pct, neu_pct, count
         }
     """
     video_uuid = await _resolve_video_uuid(db, user.org_id, video_id)
     return await aggregates.compute_distribution(db, video_uuid, user.org_id)
 
 
-@router.get("/analytics/keywords")
+@router.get(
+    "/analytics/keywords",
+    response_model=KeywordsResponse,
+    summary="Get top keyword frequencies for a video",
+    response_description="Top N keywords with occurrence counts.",
+)
 async def get_keywords(
     video_id: str = Query(..., description="Target YouTube video ID (external)"),
     top_k: int = Query(25, description="Number of top keywords to return"),
@@ -114,16 +118,11 @@ async def get_keywords(
     """
     Get top keyword frequencies for a video.
 
-    Args:
-        video_id (str): External YouTube video ID.
-        top_k (int): Number of keywords to return (default 25).
-        db (AsyncSession): Async DB session dependency.
-        user (CurrentUser): Authenticated user context.
-
     Returns:
-        list[dict]: Each entry contains:
-            - term: str
-            - count: int
+        KeywordsResponse: [{ term, count }, ...]
     """
     video_uuid = await _resolve_video_uuid(db, user.org_id, video_id)
-    return await keywords.compute_and_store_keywords(db, video_uuid, user.org_id, top_k)
+    keywords_list = await keywords.compute_and_store_keywords(
+        db, video_uuid, user.org_id, top_k
+    )
+    return {"keywords": keywords_list}

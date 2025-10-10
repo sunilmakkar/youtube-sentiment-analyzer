@@ -33,6 +33,18 @@ class CommentIn(BaseModel):
     like_count: int = 0
     parent_id: Optional[str] = None
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "yt_comment_id": "Ugyxk3n1...",
+                "author": "John Doe",
+                "text": "This video is amazing!",
+                "published_at": "2025-10-05T14:30:00Z",
+                "like_count": 5,
+                "parent_id": None,
+            }
+        }
+
 
 class CommentOut(CommentIn):
     """
@@ -47,3 +59,17 @@ class CommentOut(CommentIn):
     id: str
     video_id: str
     sentiment: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "video_id": "abc123",
+                "yt_comment_id": "Ugyxk3n1...",
+                "author": "Jane Doe",
+                "text": "Not my favorite, but interesting topic.",
+                "published_at": "2025-10-05T14:45:00Z",
+                "like_count": 2,
+                "sentiment": "neutral",
+            }
+        }

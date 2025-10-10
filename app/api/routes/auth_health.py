@@ -17,12 +17,17 @@ Related modules:
 from fastapi import APIRouter, Depends
 
 from app.core.deps import get_current_user
+from app.schemas.auth import CurrentUser
 
-router = APIRouter()
+router = APIRouter(prefix="/authz", tags=["authz"])
 
 
-@router.get("/authz/health")
-async def authz_health(current=Depends(get_current_user)):
+@router.get(
+    "/health",
+    summary="JWT authorization health check",
+    response_description="Validates authentication and org scoping via JWT.",
+)
+async def authz_health(current: CurrentUser = Depends(get_current_user)):
     """
     Authorization health check.
 
@@ -31,9 +36,15 @@ async def authz_health(current=Depends(get_current_user)):
         - User is associated with an organization (org_id).
 
     Args:
-        current: User object resolved by get_current_user dependency.
+        current (CurrentUser): User context resolved by get_current_user dependency.
 
     Returns:
         dict: JSON with "status" = "ok" and the user's org_id.
+
+    Example response:
+        {
+            "status": "ok",
+            "org_id": "4fa7b2ac-91e0-4e22-b087-f1f3b1b91b10"
+        }
     """
     return {"status": "ok", "org_id": current.org_id}

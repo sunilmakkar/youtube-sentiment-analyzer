@@ -29,24 +29,31 @@ from app.core.config import settings
 from app.db.session import engine
 from app.tasks.celery_app import ping
 
-router = APIRouter()
+router = APIRouter(prefix="/health", tags=["health"])
 
 
-@router.get("/healthz")
+@router.get(
+    "/healthz",
+    summary="Liveness probe",
+    response_description="Returns {'status': 'ok'} if the API is alive.",
+)
 async def healthz():
     """
     Liveness probe.
     Always returns {"status": "ok"} if the FastAPI app is running.
 
     Used by:
-        - CI/CD pipelines (GitHub Actions).
-        - Fly.io or Docker container orchestration.
+        - CI/CD pipelines (GitHub Actions)
+        - Docker orchestration / Fly.io health checks
     """
     return JSONResponse({"status": "ok"})
 
 
-
-@router.get("/readyz")
+@router.get(
+    "/readyz",
+    summary="Readiness probe",
+    response_description="Checks DB, Redis, Celery, and HF model readiness.",
+)
 async def readyz():
     """
     Readiness probe.
@@ -59,11 +66,22 @@ async def readyz():
 
     Returns:
         dict: JSON response with overall status and individual checks.
+
+    Example response:
+        {
+            "status": "ok",
+            "checks": {
+                "db": {"status": "ok", "latency_ms": 1.2},
+                "redis": {"status": "ok", "latency_ms": 0.7},
+                "celery": {"status": "ok", "latency_ms": 2.1},
+                "hf_model": {"status": "ok", "loaded": true}
+            }
+        }
     """
     checks = {}
     overall_status = "ok"
 
-    # DB
+    # Database check
     start = time.time()
     try:
         async with engine.connect() as conn:
@@ -76,7 +94,7 @@ async def readyz():
         checks["db"] = {"status": "error"}
         overall_status = "degraded"
 
-    # Redis
+    # Redis check
     start = time.time()
     try:
         r = redis.Redis.from_url(settings.REDIS_URL)
@@ -89,7 +107,7 @@ async def readyz():
         checks["redis"] = {"status": "error"}
         overall_status = "degraded"
 
-    # Celery
+    # Celery check
     start = time.time()
     try:
         task = ping.delay()
@@ -106,7 +124,7 @@ async def readyz():
         checks["celery"] = {"status": "error"}
         overall_status = "degraded"
 
-    # HuggingFace model (via Redis flag)
+    # HuggingFace model flag check
     try:
         r = redis.Redis.from_url(settings.REDIS_URL)
         if r.get("hf_model_loaded") == b"true":

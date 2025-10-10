@@ -15,43 +15,55 @@ Related modules:
 """
 
 from pydantic import BaseModel, EmailStr
-
 from app.models.membership import RoleEnum
 
 
 class SignupRequest(BaseModel):
     """Request schema for user/org signup."""
-
     org_name: str
     email: EmailStr
     password: str
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "org_name": "Acme Corp",
+                "email": "admin@acme.com",
+                "password": "password123"
+            }
+        }
+
 
 class LoginRequest(BaseModel):
     """Request schema for user login."""
-
     email: EmailStr
     password: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "admin@acme.com",
+                "password": "password123"
+            }
+        }
 
 
 class TokenResponse(BaseModel):
     """Response schema for returning a JWT access token."""
-
     access_token: str
     token_type: str = "bearer"
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                "token_type": "bearer"
+            }
+        }
+
 
 class TokenPayload(BaseModel):
-    """
-    Internal schema for JWT payload.
-
-    Attributes:
-        sub (str): User ID.
-        org_id (str): Organization ID (tenant scoping).
-        role (RoleEnum): User's role within the org.
-        exp (int): Expiration timestamp (epoch).
-    """
-
+    """Internal schema for JWT payload."""
     sub: str
     org_id: str
     role: RoleEnum
@@ -59,13 +71,26 @@ class TokenPayload(BaseModel):
 
 
 class CurrentUser(BaseModel):
-    """
-    Schema representing the authenticated user context.
-
-    Returned by dependencies to unify User + Org context for routes.
-    """
-
+    """Schema representing the authenticated user context."""
     id: str
     email: EmailStr
     org_id: str
     role: RoleEnum
+
+
+class UserResponse(BaseModel):
+    """Response schema for /auth/me route."""
+    id: str
+    email: EmailStr
+    org_id: str
+    role: RoleEnum
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "1d2a3f45-678b-49cd-a890-ef1234567890",
+                "email": "user@acme.com",
+                "org_id": "9c4a7b12-456e-40f9-b8de-11a56b87c123",
+                "role": "admin"
+            }
+        }

@@ -27,12 +27,20 @@ from app.schemas.comment import CommentOut
 router = APIRouter(prefix="/comments", tags=["comments"])
 
 
-@router.get("/", response_model=list[CommentOut])
+@router.get(
+    "/",
+    response_model=list[CommentOut],
+    summary="Retrieve comments for a YouTube video",
+    response_description="List of comments associated with the specified video",
+)
 async def get_comments(
-    video_id: str,
-    limit: int = Query(50, ge=1, le=100),
-    offset: int = 0,
-    has_sentiment: bool = False,  # kept for API UX, but ignored until sentiment exists
+    video_id: str = Query(..., description="YouTube video ID"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum number of comments to return"),
+    offset: int = Query(0, description="Pagination offset"),
+    has_sentiment: bool = Query(
+        False,
+        description="If True, include sentiment placeholder in response",
+    ),
     db: AsyncSession = Depends(get_session),
     current_user=Depends(get_current_user),
 ):
@@ -42,14 +50,6 @@ async def get_comments(
     Enforces:
         - Multi-tenant scoping (org_id matches current_user).
         - Pagination (limit + offset).
-
-    Args:
-        video_id (str): YouTube video ID whose comments to fetch.
-        limit (int): Maximum number of comments (default 50, range 1–100).
-        offset (int): Offset for pagination (default 0).
-        has_sentiment (bool): If True, add placeholder sentiment field.
-        db (AsyncSession): Database session dependency.
-        current_user: User object resolved via JWT claims.
 
     Returns:
         list[CommentOut] | list[dict]:
@@ -67,9 +67,8 @@ async def get_comments(
     )
 
     rows = await db.execute(q)
-    results = rows.scalars().all()  # return Comment objects
+    results = rows.scalars().all()
 
-    # if has_sentiment is requested, add a placeholder key
     if has_sentiment:
         return [{**c.__dict__, "sentiment": None} for c in results]
     return results
