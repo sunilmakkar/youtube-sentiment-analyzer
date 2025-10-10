@@ -153,7 +153,7 @@ TOKEN="paste_your_access_token_here"
 ## Example cURL Commands
 
 ### Auth
-``````bash
+```bash
 # Signup
 curl -X POST http://localhost:8000/auth/signup \
   -H "Content-Type: application/json" \
